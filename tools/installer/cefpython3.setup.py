@@ -27,24 +27,9 @@ import subprocess
 import sys
 import sysconfig
 
-# The setuptools package is not installed by default on a clean
-# Ubuntu. Might be also a case on Windows. Also Python Eggs
-# and Wheels can be created only with setuptools.
-try:
-    from setuptools import setup
-    from setuptools.command.install import install
-    from setuptools.dist import Distribution
-    print("[setup.py] Using setuptools")
-except ImportError:
-    from distutils.core import setup
-    from distutils.command.install import install
-    from distutils.dist import Distribution
-    print("[setup.py] Using distutils")
-    if "bdist_wheel" in sys.argv:
-        print("[setup.py] ERROR: You must install setuptools package using"
-              " pip tool to be able to create a wheel package. Type"
-              " 'pip install setuptools'.")
-        sys.exit(1)
+from setuptools import setup
+from setuptools.command.install import install
+from setuptools.dist import Distribution
 
 
 # Need to know which files are executables to set appropriate execute
@@ -127,31 +112,27 @@ def main():
                          " kind of internet bots.\n\n"
                          "Project website:\n"
                          "https://github.com/cztomczak/cefpython",
-        license="BSD 3-clause",
+        license="BSD-3-Clause",
         author="Czarek Tomczak",
         author_email="czarek.tomczak@gmail.com",
         url="https://github.com/cztomczak/cefpython",
         download_url="https://github.com/cztomczak/cefpython/releases",
         platforms=["{{SYSCONFIG_PLATFORM}}"],
-        packages=["cefpython3"],  # Disabled: "cefpython3.wx"
+        python_requires=">=3.12",
+        packages=["cefpython3"],
         package_data=get_package_data(),
         classifiers=[
             "Development Status :: 6 - Mature",
             "Intended Audience :: Developers",
-            "License :: OSI Approved :: BSD License",
             "Natural Language :: English",
             "Operating System :: MacOS :: MacOS X",
             "Operating System :: Microsoft :: Windows",
             "Operating System :: POSIX :: Linux",
-            "Programming Language :: Python :: 2.7",
-            "Programming Language :: Python :: 3.4",
-            "Programming Language :: Python :: 3.5",
-            "Programming Language :: Python :: 3.6",
-            "Programming Language :: Python :: 3.7",
-            "Programming Language :: Python :: 3.8",
-            "Programming Language :: Python :: 3.9",
-            "Programming Language :: Python :: 3.10",
-            "Programming Language :: Python :: 3.11",
+            "Programming Language :: Python :: 3",
+            "Programming Language :: Python :: 3 :: Only",
+            "Programming Language :: Python :: 3.12",
+            "Programming Language :: Python :: 3.13",
+            "Programming Language :: Python :: 3.14",
             "Topic :: Desktop Environment",
             "Topic :: Internet",
             "Topic :: Internet :: WWW/HTTP",

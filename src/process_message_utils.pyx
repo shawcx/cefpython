@@ -239,7 +239,7 @@ cdef CefRefPtr[CefListValue] PyListToCefListValue(
             ret.get().SetNull(index)
         elif valueType == bool:
             ret.get().SetBool(index, bool(value))
-        elif valueType in (int, long):
+        elif valueType == int:
             # Int32 range is -2147483648..2147483647, we've increased the
             # minimum size by one as Cython was throwing a warning:
             # "unary minus operator applied to unsigned type, result still
@@ -248,13 +248,11 @@ cdef CefRefPtr[CefListValue] PyListToCefListValue(
                 ret.get().SetInt(index, int(value))
             else:
                 # Long values become strings.
-                ret.get().SetString(index, PyToCefStringValue(str(value)))
+                ret.get().SetString(index, PyToCefStringValue(value))
         elif valueType == float:
             ret.get().SetDouble(index, float(value))
-        elif valueType == bytes or valueType == str \
-                or (PY_MAJOR_VERSION < 3 and valueType == unicode):
-            # The unicode type is not defined in Python 3.
-            ret.get().SetString(index, PyToCefStringValue(str(value)))
+        elif valueType == bytes or valueType == str:
+            ret.get().SetString(index, PyToCefStringValue(value))
         elif valueType == dict:
             ret.get().SetDictionary(index, PyDictToCefDictionaryValue(
                     browserId, frameId, value, nestingLevel + 1))
@@ -272,7 +270,7 @@ cdef CefRefPtr[CefListValue] PyListToCefListValue(
             # the data may contain some non-standard object that is
             # probably redundant, but casting to string will do no harm.
             # This will handle the "type" type.
-            ret.get().SetString(index, PyToCefStringValue(str(value)))
+            ret.get().SetString(index, PyToCefStringValue(value))
     return ret
 
 cdef void PyListToExistingCefListValue(
@@ -296,7 +294,7 @@ cdef void PyListToExistingCefListValue(
             cefListValue.get().SetNull(index)
         elif valueType == bool:
             cefListValue.get().SetBool(index, bool(value))
-        elif valueType in (int, long):
+        elif valueType == int:
             # Int32 range is -2147483648..2147483647, we've increased the
             # minimum size by one as Cython was throwing a warning:
             # "unary minus operator applied to unsigned type, result still
@@ -309,10 +307,8 @@ cdef void PyListToExistingCefListValue(
                         value)))
         elif valueType == float:
             cefListValue.get().SetDouble(index, float(value))
-        elif valueType == bytes or valueType == str \
-                or (PY_MAJOR_VERSION < 3 and valueType == unicode):
-            # The unicode type is not defined in Python 3.
-            cefListValue.get().SetString(index, PyToCefStringValue(str(value)))
+        elif valueType == bytes or valueType == str:
+            cefListValue.get().SetString(index, PyToCefStringValue(value))
         elif valueType == dict:
             cefListValue.get().SetDictionary(index, PyDictToCefDictionaryValue(
                     browserId, frameId, value, nestingLevel + 1))
@@ -332,7 +328,7 @@ cdef void PyListToExistingCefListValue(
             # the data may contain some non-standard object that is
             # probably redundant, but casting to string will do no harm.
             # This will handle the "type" type.
-            cefListValue.get().SetString(index, PyToCefStringValue(str(value)))
+            cefListValue.get().SetString(index, PyToCefStringValue(value))
 
 cdef CefRefPtr[CefDictionaryValue] PyDictToCefDictionaryValue(
         int browserId,
@@ -354,19 +350,17 @@ cdef CefRefPtr[CefDictionaryValue] PyDictToCefDictionaryValue(
             ret.get().SetNull(cefKey)
         elif valueType == bool:
             ret.get().SetBool(cefKey, bool(value))
-        elif valueType == int or valueType == long:  # In Py3 int and long types are the same type.
+        elif valueType == int:
             # Int32 range is -2147483648..2147483647
             if INT_MIN <= value <= INT_MAX:
                 ret.get().SetInt(cefKey, int(value))
             else:
                 # Long values become strings.
-                ret.get().SetString(cefKey, PyToCefStringValue(str(value)))
+                ret.get().SetString(cefKey, PyToCefStringValue(value))
         elif valueType == float:
             ret.get().SetDouble(cefKey, float(value))
-        elif valueType == bytes or valueType == str \
-                or (PY_MAJOR_VERSION < 3 and valueType == unicode):
-            # The unicode type is not defined in Python 3.
-            ret.get().SetString(cefKey, PyToCefStringValue(str(value)))
+        elif valueType == bytes or valueType == str:
+            ret.get().SetString(cefKey, PyToCefStringValue(value))
         elif valueType == dict:
             ret.get().SetDictionary(cefKey, PyDictToCefDictionaryValue(
                     browserId, frameId, value, nestingLevel + 1))
@@ -384,5 +378,5 @@ cdef CefRefPtr[CefDictionaryValue] PyDictToCefDictionaryValue(
             # the data may contain some non-standard object that is
             # probably redundant, but casting to string will do no harm.
             # This will handle the "type" type.
-            ret.get().SetString(cefKey, PyToCefStringValue(str(value)))
+            ret.get().SetString(cefKey, PyToCefStringValue(value))
     return ret

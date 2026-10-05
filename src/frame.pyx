@@ -103,7 +103,7 @@ cdef void RemovePyFramesForBrowser(int browserId) except *:
     cdef object uniqueFrameId
     cdef PyFrame pyFrame
     global g_pyFrames
-    for uniqueFrameId, pyFrame in g_pyFrames.iteritems():
+    for uniqueFrameId, pyFrame in g_pyFrames.items():
         if pyFrame.GetBrowserIdentifier() == browserId:
             toRemove.append(uniqueFrameId)
     for uniqueFrameId in toRemove:

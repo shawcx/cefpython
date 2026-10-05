@@ -14,8 +14,8 @@ cdef void AppendSwitchesToCommandLine(
     cdef PyCommandLine pyCommandLine = CreatePyCommandLine(cefCommandLine)
     cdef py_string switch
     cdef py_string value
-    for switch, value in switches.iteritems():
-        if not isinstance(switch, basestring) or switch[0] == '-':
+    for switch, value in switches.items():
+        if not isinstance(switch, str) or switch[0] == '-':
             Debug("Invalid command line switch: %s" % switch)
             continue
         if value:

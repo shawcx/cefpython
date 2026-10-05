@@ -24,10 +24,7 @@ g_browserProcessThreads = [
 ]
 
 cpdef py_bool IsString(object maybeString):
-    # In Python 2.7 string types are: 1) str/bytes 2) unicode.
-    # In Python 3 string types are: 1) bytes 2) str
-    if type(maybeString) == bytes or type(maybeString) == str \
-            or (PY_MAJOR_VERSION < 3 and type(maybeString) == unicode):
+    if type(maybeString) == bytes or type(maybeString) == str:
         return True
     return False
 

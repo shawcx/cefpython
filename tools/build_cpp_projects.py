@@ -15,7 +15,8 @@ TODO: Linux/Mac support, see makefiles, add include dirs using
       refactor macros.
 """
 
-# import setuptools so that distutils msvc compiler is patched
+# distutils was removed from the stdlib in Python 3.12. Importing
+# setuptools first makes "distutils" resolve to its bundled copy.
 # noinspection PyUnresolvedReferences
 import setuptools
 from distutils.ccompiler import new_compiler
@@ -110,8 +111,6 @@ def print_compiler_options():
 
 
 def get_compiler(static=False):
-    # NOTES:
-    # - VS2008 and VS2010 are both using distutils/msvc9compiler.py
     compiler = new_compiler()
     # Must initialize so that "compile_options" and others are available
     compiler.initialize()

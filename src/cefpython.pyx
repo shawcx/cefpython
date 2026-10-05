@@ -137,35 +137,19 @@ import struct
 # noinspection PyUnresolvedReferences
 import base64
 
-# Must use compile-time condition instead of checking sys.version_info.major
-# otherwise results in "ImportError: cannot import name urlencode" strange
-# error in Python 3.6.
-IF PY_MAJOR_VERSION == 2:
-    # noinspection PyUnresolvedReferences
-    import urlparse
-    # noinspection PyUnresolvedReferences
-    from urllib import urlencode as urllib_urlencode
-    from urllib import quote as urlparse_quote
-ELSE:
-    # noinspection PyUnresolvedReferences
-    from urllib import parse as urlparse
-    from urllib.parse import quote as urlparse_quote
-    # noinspection PyUnresolvedReferences
-    from urllib.parse import urlencode as urllib_urlencode
-
 # noinspection PyUnresolvedReferences
-from cpython.version cimport PY_MAJOR_VERSION
+from urllib import parse as urlparse
+from urllib.parse import quote as urlparse_quote
+# noinspection PyUnresolvedReferences
+from urllib.parse import urlencode as urllib_urlencode
+
 # noinspection PyUnresolvedReferences
 import weakref
 
-# We should allow multiple string types: str, unicode, bytes.
-# PyToCefString() can handle them all.
-# Important:
-#   If you set it to basestring, Cython will accept exactly(!)
-#   str/unicode in Py2 and str in Py3. This won't work in Py3
-#   as we might want to pass bytes as well. Also it will
-#   reject string subtypes, so using it in publi API functions
-#   would be a bad idea.
+# We should allow multiple string types: str and bytes.
+# PyToCefString() can handle them all. Typing it as "str"
+# would reject bytes and string subtypes, so it would be
+# a bad idea in public API functions.
 ctypedef object py_string
 
 # You can't use "void" along with cpdef function returning None, it is
@@ -1019,8 +1003,7 @@ cpdef LoadCrlSetsFile(py_string path):
     CefLoadCRLSetsFile(PyToCefStringValue(path))
 
 cpdef GetDataUrl(data, mediatype="html"):
-    if PY_MAJOR_VERSION >= 3:
-        data = data.encode("utf-8", "replace")
+    data = data.encode("utf-8", "replace")
     b64 = base64.b64encode(data).decode("utf-8", "replace")
     ret = "data:text/html;base64,{data}".format(data=b64)
     return ret

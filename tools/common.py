@@ -12,6 +12,7 @@ import re
 import shutil
 import struct
 import sys
+import sysconfig
 import tempfile
 
 # These sample apps will be deleted when creating setup/wheel packages
@@ -81,7 +82,7 @@ PYPI_POSTFIX2_ARCH = dict(
     MAC={"64bit": "x86_64"},
 )
 
-# Python version eg. 27
+# Python version eg. 312
 PYVERSION = str(sys.version_info[0])+str(sys.version_info[1])
 
 # Module extension
@@ -250,11 +251,12 @@ def get_python_path():
 
 
 def get_python_include_path():
-    # 1) C:\Python27\include
-    # 2) ~/.pyenv/versions/2.7.13/bin/python
-    #    ~/.pyenv/versions/2.7.13/include/python2.7
-    # 3) ~/.pyenv/versions/3.4.6/include/python2.7m
-    # 4) /usr/include/python2.7
+    include_dir = sysconfig.get_paths()["include"]
+    if os.path.isfile(os.path.join(include_dir, "Python.h")):
+        return include_dir
+    # 1) C:\Python312\include
+    # 2) ~/.pyenv/versions/3.12.3/include/python3.12
+    # 3) /usr/include/python3.12
     base_dir = sys.base_prefix
     try_dirs = ["{base_dir}/include",
                 "{base_dir}/../include/python{ver}",
@@ -449,31 +451,10 @@ def get_version_from_file(header_file):
 
 def get_msvs_for_python(vs_prefix=False):
     """Get MSVS version (eg 2008) for current python running."""
-    if sys.version_info[:2] == (2, 7):
-        return "VS2008" if vs_prefix else "2008"
-    elif sys.version_info[:2] == (3, 4):
-        return "VS2010" if vs_prefix else "2010"
-    elif sys.version_info[:2] == (3, 5):
+    if sys.version_info[:2] >= (3, 12):
         return "VS2015" if vs_prefix else "2015"
-    elif sys.version_info[:2] == (3, 6):
-        return "VS2015" if vs_prefix else "2015"
-    elif sys.version_info[:2] == (3, 7):
-        return "VS2015" if vs_prefix else "2015"
-    elif sys.version_info[:2] == (3, 8):
-        return "VS2015" if vs_prefix else "2015"
-    elif sys.version_info[:2] == (3, 9):
-        return "VS2015" if vs_prefix else "2015"
-    elif sys.version_info[:2] == (3, 10):
-        return "VS2015" if vs_prefix else "2015"
-    elif sys.version_info[:2] == (3, 11):
-        return "VS2015" if vs_prefix else "2015"
-    elif sys.version_info[:2] == (3, 12):
-        return "VS2015" if vs_prefix else "2015"
-    elif sys.version_info[:2] == (3, 13):
-        return "VS2015" if vs_prefix else "2015"
-    else:
-        print("ERROR: This version of Python is not supported")
-        sys.exit(1)
+    print("ERROR: This version of Python is not supported")
+    sys.exit(1)
 
 
 _detect_cef_binaries_libraries_dir()

@@ -142,8 +142,6 @@ cdef class JavascriptBindings:
             return True
         elif valueType == int:
             return True
-        elif valueType == long:
-            return True
         elif valueType == type(None):
             return True
         elif IsFunctionOrMethod(valueType):
@@ -158,9 +156,6 @@ cdef class JavascriptBindings:
                     return valueType2.__name__
             return True
         elif valueType == str or valueType == bytes:
-            return True
-        elif PY_MAJOR_VERSION < 3 and valueType == unicode:
-            # The unicode type is not defined in Python 3.
             return True
         elif valueType == tuple:
             return True

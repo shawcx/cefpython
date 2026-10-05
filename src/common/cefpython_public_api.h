@@ -33,32 +33,16 @@
 #define DL_EXPORT(RTYPE) RTYPE
 #endif
 
-#if PY_MAJOR_VERSION == 2
-#if PY_MINOR_VERSION == 7
-#include "../../build/build_cefpython/cefpython_py27_fixed.h"
-#endif // PY_MINOR_VERSION
-#elif PY_MAJOR_VERSION == 3
-#if PY_MINOR_VERSION == 4
-#include "../../build/build_cefpython/cefpython_py34_fixed.h"
-#elif PY_MINOR_VERSION == 5
-#include "../../build/build_cefpython/cefpython_py35_fixed.h"
-#elif PY_MINOR_VERSION == 6
-#include "../../build/build_cefpython/cefpython_py36_fixed.h"
-#elif PY_MINOR_VERSION == 7
-#include "../../build/build_cefpython/cefpython_py37_fixed.h"
-#elif PY_MINOR_VERSION == 8
-#include "../../build/build_cefpython/cefpython_py38_fixed.h"
-#elif PY_MINOR_VERSION == 9
-#include "../../build/build_cefpython/cefpython_py39_fixed.h"
-#elif PY_MINOR_VERSION == 10
-#include "../../build/build_cefpython/cefpython_py310_fixed.h"
-#elif PY_MINOR_VERSION == 11
-#include "../../build/build_cefpython/cefpython_py311_fixed.h"
+#if PY_MAJOR_VERSION != 3 || PY_MINOR_VERSION < 12
+#error "CEF Python requires Python 3.12 or later"
 #elif PY_MINOR_VERSION == 12
 #include "../../build/build_cefpython/cefpython_py312_fixed.h"
 #elif PY_MINOR_VERSION == 13
 #include "../../build/build_cefpython/cefpython_py313_fixed.h"
-#endif // PY_MINOR_VERSION
-#endif // PY_MAJOR_VERSION
+#elif PY_MINOR_VERSION == 14
+#include "../../build/build_cefpython/cefpython_py314_fixed.h"
+#else
+#error "Unsupported Python version, add it to cefpython_public_api.h"
+#endif
 
 #endif // CEFPYTHON_PUBLIC_API_H

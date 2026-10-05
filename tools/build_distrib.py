@@ -33,8 +33,8 @@ This script does the following:
    b) On Linux use only Pythons from ~/.pyenv/versions/
       directory
    c) On Mac use Pythons from ~/.pyenv/versions/ and /usr/local/bin/python
-      For example will use Python 2.7.13 from /usr/local/bin/ only
-      when 2.7 was not found in ~/.pyenv/versions/.
+      For example will use Python 3.12.x from /usr/local/bin/ only
+      when 3.12 was not found in ~/.pyenv/versions/.
 2. Expects that all python compilers for supported python versions
    are installed. See docs/Build-instructions.md > Requirements.
 3. Expects cef_binary*/ directories from Spotify Automated Builds
@@ -52,8 +52,7 @@ This script does the following:
 7. Reduce packages size (Issue #321). After packing prebuilt binaries,
    reduce its size so that packages will use the reduced prebuilt binaries.
 8. Build cefpython modules for all supported Python versions on both
-   32-bit and 64-bit. Backup and restore subprocess executable on Windows
-   built with Python 2.7 (Issue #342).
+   32-bit and 64-bit.
 9. Make setup installers and pack them to zip (Win/Mac) or .tar.gz (Linux)
 10. Make wheel packages
 11. Move setup and wheel packages to the build/distrib/ directory
@@ -80,7 +79,7 @@ NO_AUTOMATE = False
 ALLOW_PARTIAL = False
 
 # Python versions
-SUPPORTED_PYTHON_VERSIONS = [(2, 7), (3, 4), (3, 5), (3, 6), (3, 7), (3, 8), (3, 9), (3, 10), (3, 11), (3, 12), (3, 13)]
+SUPPORTED_PYTHON_VERSIONS = [(3, 12), (3, 13), (3, 14)]
 
 # Python search paths. It will use first Python found for specific version.
 # Supports replacement of one environment variable in path eg.: %ENV_KEY%.
@@ -277,9 +276,7 @@ def search_for_pythons(search_arch):
                 version_str = subprocess.check_output([python, "-c",
                                                        version_code]).decode()
                 version_str = version_str.strip()
-                if sys.version_info >= (3, 0):
-                    version_str = version_str.decode("utf-8")
-                match = re.search("^\((\d+), (\d+), (\d+)\)$", version_str)
+                match = re.search(r"^\((\d+), (\d+), (\d+)\)$", version_str)
                 assert match, version_str
                 major = match.group(1)
                 minor = match.group(2)
@@ -290,8 +287,6 @@ def search_for_pythons(search_arch):
                              "print(str(platform.architecture()[0]));")
                 arch = subprocess.check_output([python, "-c", arch_code]).decode()
                 arch = arch.strip()
-                if sys.version_info >= (3, 0):
-                    arch = arch.decode("utf-8")
                 if version_tuple2 in SUPPORTED_PYTHON_VERSIONS \
                         and arch == search_arch:
                     name = ("Python {major}.{minor}.{micro} {arch}"
@@ -354,11 +349,6 @@ def install_upgrade_requirements(pythons):
 
         # Upgrade pip
         pip_version = "pip"
-        # Old Python versions require specific versions of pip, latest versions are broken with these.
-        if python["version2"] == (2, 7):
-            pip_version = "pip==20.3.4"
-        elif python["version2"] == (3, 4):
-            pip_version = "pip==19.1.1"
         command = ("\"{python}\" -m pip install --upgrade {pip_version}"
                    .format(python=python["executable"], pip_version=pip_version))
         command = sudo_command(command, python=python["executable"])
@@ -517,52 +507,9 @@ def build_cefpython_modules(pythons, arch):
             sys.exit(1)
         print("[build_distrib.py] Built successfully cefpython module for"
               " {python_name}".format(python_name=python["name"]))
-        # Issue #342
-        backup_subprocess_executable_issue342(python)
-
-    # Issue #342
-    restore_subprocess_executable_issue342(arch)
 
     print("[build_distrib.py] Successfully built cefpython modules for {arch}"
           .format(arch=arch))
-
-
-def backup_subprocess_executable_issue342(python):
-    """Use subprocess executable built by Python 3.4 to have the least amount of
-    false-positives by AVs. Windows-only issue."""
-    if not WINDOWS:
-        return
-    if python["version2"] == (2, 7):
-        print("[build_distrib.py] Backup subprocess executable built"
-              " with Python 3.4 (Issue #342)")
-        cefpython_binary_basename = get_cefpython_binary_basename(
-                get_os_postfix2_for_arch(python["arch"]))
-        cefpython_binary = os.path.join(BUILD_DIR, cefpython_binary_basename)
-        assert os.path.isdir(cefpython_binary)
-        src = os.path.join(cefpython_binary, "subprocess.exe")
-        dst = os.path.join(BUILD_CEFPYTHON,
-                           "subprocess_py34_{arch}_issue342.exe"
-                           .format(arch=python["arch"]))
-        shutil.copy(src, dst)
-
-
-def restore_subprocess_executable_issue342(arch):
-    """Use subprocess executable built by Python 3.4 to have the least amount of
-    false-positives by AVs. Windows-only issue."""
-    if not WINDOWS:
-        return
-    print("[build_distrib.py] Restore subprocess executable built"
-          " with Python 3.4 (Issue #342)")
-    cefpython_binary_basename = get_cefpython_binary_basename(
-            get_os_postfix2_for_arch(arch))
-    cefpython_binary = os.path.join(BUILD_DIR, cefpython_binary_basename)
-    assert os.path.isdir(cefpython_binary)
-    src = os.path.join(BUILD_CEFPYTHON,
-                       "subprocess_py34_{arch}_issue342.exe"
-                       .format(arch=arch))
-    assert os.path.isfile(src)
-    dst = os.path.join(cefpython_binary, "subprocess.exe")
-    shutil.copy(src, dst)
 
 
 def make_packages(python, arch, all_pythons):
@@ -595,7 +542,7 @@ def make_packages(python, arch, all_pythons):
     # Make wheel package
     print("[build_distrib.py] Make wheel package for {arch}..."
           .format(arch=arch))
-    wheel_args = "bdist_wheel --universal"
+    wheel_args = "bdist_wheel --python-tag py3"
     wheel_command = ("\"{python}\" setup.py {wheel_args}"
                      .format(python=python["executable"],
                              wheel_args=wheel_args))
@@ -623,21 +570,11 @@ def check_cpp_extension_dependencies_issue359(setup_dir, all_pythons):
         return
     checked_any = False
     for python in all_pythons:
-        if python["version2"] in ((3, 5), (3, 6), (3, 7), (3, 8), (3, 9), (3, 10), (3, 11), (3, 12), (3, 13)):
+        if python["version2"] >= (3, 12):
             checked_any = True
             if not os.path.exists(os.path.join(setup_dir, "cefpython3",
                                                "msvcp140.dll")):
                 raise Exception("C++ ext dependency missing: msvcp140.dll")
-        elif python["version2"] == (3, 4):
-            checked_any = True
-            if not os.path.exists(os.path.join(setup_dir, "cefpython3",
-                                               "msvcp100.dll")):
-                raise Exception("C++ ext dependency missing: msvcp100.dll")
-        elif python["version2"] == (2, 7):
-            if not os.path.exists(os.path.join(setup_dir, "cefpython3",
-                                               "msvcp90.dll")):
-                raise Exception("C++ ext dependency missing: msvcp90.dll")
-            checked_any = True
     assert checked_any
 
 
