@@ -37,6 +37,10 @@ workarounds.
 - [hello_world.py](hello_world.py) - Basic example, doesn't require any
   third party GUI framework to run
 - [tutorial.py](tutorial.py) - Example from [Tutorial](../docs/Tutorial.md)
+- [todo_app.py](todo_app.py) - To-do list application with the user
+  interface in HTML/Javascript and the logic and storage in Python.
+  Shows Javascript bindings passed to CreateBrowserSync, calling Python
+  from Javascript with callbacks and calling Javascript from Python.
 - [screenshot.py](screenshot.py) - Example of off-screen rendering mode
   to create a screenshot of a web page. The code from this example is
   discussed in great details in Tutorial in the [Off-screen rendering](../docs/Tutorial.md#off-screen-rendering)

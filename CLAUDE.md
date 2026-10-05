@@ -33,7 +33,7 @@ What `build.py` does:
 5. Builds a wheel with `make_installer.py --wheel` and installs it with `pip`.
 6. Runs `unittests/_test_runner.py`, then the examples (`tools/run_examples.py`).
 
-Packaging: `tools/make_installer.py VERSION [--wheel --python-tag py3]`. The wheel contains a `cefpython_pyXY` module for every Python version you've built with. Its `manylinux_2_X` tag comes from the highest `GLIBC_` symbol version used by the packaged binaries, so build in an older environment for broader compatibility. `tools/build_distrib.py VERSION` builds packages for every Python version and architecture.
+Packaging: `tools/make_deb.py VERSION` builds `build/python3-cefpython3_VERSION-1_amd64.deb` (Linux; runs make_installer.py, strips binaries, gets dependencies from dpkg-shlibdeps). `tools/make_installer.py VERSION [--wheel --python-tag py3]`. The wheel contains a `cefpython_pyXY` module for every Python version you've built with. Its `manylinux_2_X` tag comes from the highest `GLIBC_` symbol version used by the packaged binaries, so build in an older environment for broader compatibility. `tools/build_distrib.py VERSION` builds packages for every Python version and architecture.
 
 ## Tests
 

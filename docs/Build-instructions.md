@@ -394,6 +394,22 @@ Additional flags when using --wheel flag:
   for multiple Python versions (in such case you must first build
   the cefpython module with each Python version)
 
+To create a Debian package (Linux only) type:
+```
+cd cefpython/build/
+python ../tools/make_deb.py xx.x
+sudo apt install ./python3-cefpython3_xx.x-1_amd64.deb
+```
+
+The package installs cefpython3 for the system Python 3 in
+/usr/lib/python3/dist-packages/ and examples in
+/usr/share/doc/python3-cefpython3/examples/. It includes the
+cefpython module for each Python version that was built with
+build.py. Binaries are stripped and dependencies are computed with
+dpkg-shlibdeps, so the package targets the distribution it was
+built on. Use `--maintainer "Name <email>"` and `--revision N`
+to override the defaults (DEBFULLNAME/DEBEMAIL or git config).
+
 CEF Python binaries are build using similar configuration as described
 on the ["Automated Build Setup"](https://bitbucket.org/chromiumembedded/cef/wiki/AutomatedBuildSetup.md#markdown-header-platform-build-configurations) wiki page in upstream CEF. The automate.py tool incorporates most of
 of the flags from these configurations.
