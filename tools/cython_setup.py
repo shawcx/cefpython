@@ -178,7 +178,7 @@ def set_compiler_options(options):
         #
         # The above warning LNK4217 is caused by the warning below which occurs
         # when building the client_handler.lib static library:
-        extra_compile_args.extend(["/EHsc", "/wd4305", "/std:c++17"])
+        extra_compile_args.extend(["/EHsc", "/wd4305", "/std:c++20"])
         extra_link_args.extend(["/ignore:4217"])
 
     if LINUX or MAC:
@@ -190,13 +190,12 @@ def set_compiler_options(options):
 
         extra_compile_args.extend([
                 "-DNDEBUG",
-                "-std=gnu++11",
+                "-std=gnu++20",
         ])
 
     if LINUX:
         os.environ["CC"] = "g++"
         os.environ["CXX"] = "g++"
-        extra_compile_args.extend(["-std=gnu++11"])
 
         # Fix "ImportError ... undefined symbol ..." caused by CEF's
         # include/base/ headers by adding the -flto flag (Issue #230).

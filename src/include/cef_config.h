@@ -35,6 +35,10 @@
 #ifndef CEF_INCLUDE_CEF_CONFIG_H_
 #define CEF_INCLUDE_CEF_CONFIG_H_
 
-
+// CEF Python: this header is shared by all platforms, upstream
+// generates a different one for each platform.
+#if defined(__linux__)
+#define CEF_X11 1
+#endif
 
 #endif  // CEF_INCLUDE_CEF_CONFIG_H_

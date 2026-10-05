@@ -432,10 +432,40 @@ def get_version_from_command_line_args(caller_script, ignore_error=False):
 
 
 def get_cefpython_version():
-    """Get CEF version from the 'src/version/' directory."""
+    """Get CEF version from the 'src/version/' directory and API hashes
+    for the current platform from 'src/include/'."""
     header_file = os.path.join(SRC_DIR, "version",
                                "cef_version_"+OS_POSTFIX+".h")
-    return get_version_from_file(header_file)
+    ret = get_version_from_file(header_file)
+    ret.update(get_api_hash())
+    return ret
+
+
+def get_api_hash():
+    """Since CEF 133 API hashes are defined per API version in the
+    cef_api_versions.h file and there is no universal hash. CEF Python
+    does not set CEF_API_VERSION, so the experimental version is used."""
+    os_define = {"win": "OS_WIN", "mac": "OS_MAC",
+                 "linux": "OS_LINUX"}[OS_POSTFIX]
+    versions_file = os.path.join(SRC_DIR, "include", "cef_api_versions.h")
+    if os.path.exists(versions_file):
+        name = "CEF_API_HASH_999999"
+        header_file = versions_file
+    else:
+        name = "CEF_API_HASH_PLATFORM"
+        header_file = os.path.join(SRC_DIR, "include", "cef_api_hash.h")
+    with open(header_file, "r") as fp:
+        contents = fp.read()
+    universal = re.search(r'^#define CEF_API_HASH_UNIVERSAL "(\w+)"',
+                          contents, re.MULTILINE)
+    platform_hash = re.search(r'defined\({os_define}\)\n'
+                              r'#define {name} "(\w+)"'
+                              .format(os_define=os_define, name=name),
+                              contents)
+    assert platform_hash, "API hash not found: " + header_file
+    return dict(CEF_API_HASH_UNIVERSAL=universal.group(1) if universal
+                else "",
+                CEF_API_HASH_PLATFORM=platform_hash.group(1))
 
 
 def get_version_from_file(header_file):

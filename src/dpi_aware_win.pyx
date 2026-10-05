@@ -60,6 +60,8 @@ class DpiAware:
 
     @classmethod
     def SetProcessDpiAware(cls):
-        """Deprecated."""
-        DpiAware.EnableHighDpiSupport()
+        # EnableHighDpiSupport() was removed with CEF 123, as CEF no
+        # longer provides CefEnableHighDPISupport().
+        with nogil:
+            SetProcessDpiAware()
 

@@ -5,6 +5,7 @@
 include "compile_time_constants.pxi"
 
 from libcpp cimport bool as cpp_bool
+from cef_types cimport cef_runtime_style_t
 
 cdef extern from "include/internal/cef_mac.h":
 
@@ -15,6 +16,7 @@ cdef extern from "include/internal/cef_mac.h":
         void SetAsChild(CefWindowHandle parent,
                         int x, int y, int width, int height)
         void SetAsWindowless(CefWindowHandle parent)
+        cef_runtime_style_t runtime_style
 
     cdef cppclass CefMainArgs:
         CefMainArgs()

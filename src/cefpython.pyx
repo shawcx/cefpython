@@ -453,17 +453,6 @@ def Initialize(applicationSettings=None, commandLineSwitches=None, **kwargs):
     del command_line_switches
     del commandLineSwitches
 
-    IF UNAME_SYSNAME == "Linux":
-        # Fix Issue #231 - Discovery of the "icudtl.dat" file fails on Linux.
-        cdef str py_module_dir = GetModuleDirectory()
-        cdef CefString cef_module_dir
-        PyToCefString(py_module_dir, cef_module_dir)
-        CefOverridePath(PK_DIR_EXE, cef_module_dir)\
-                or Debug("ERROR: CefOverridePath failed")
-        CefOverridePath(PK_DIR_MODULE, cef_module_dir)\
-                or Debug("ERROR: CefOverridePath failed")
-    # END IF UNAME_SYSNAME == "Linux":
-
     if not application_settings:
         application_settings = {}
 
@@ -571,6 +560,12 @@ def Initialize(applicationSettings=None, commandLineSwitches=None, **kwargs):
         application_settings["cache_path"] = ""
     if not application_settings["cache_path"]:
         g_commandLineSwitches["disable-gpu-shader-disk-cache"] = ""
+
+    # Since Chromium 128 the popup blocker also applies to Alloy style
+    # browsers and blocks window.open() calls without user gesture.
+    # Keep allowing popups like in previous CEF Python versions.
+    if "disable-popup-blocking" not in g_commandLineSwitches:
+        g_commandLineSwitches["disable-popup-blocking"] = ""
 
     cdef CefRefPtr[CefApp] cefApp = <CefRefPtr[CefApp]?>new CefPythonApp()
 
@@ -941,9 +936,11 @@ def Shutdown():
         MacShutdown()
 
 def SetOsModalLoop(py_bool modalLoop):
-    cdef cpp_bool cefModalLoop = bool(modalLoop)
-    with nogil:
-        CefSetOSModalLoop(cefModalLoop)
+    # Windows only. No-op on other platforms.
+    IF UNAME_SYSNAME == "Windows":
+        cdef cpp_bool cefModalLoop = bool(modalLoop)
+        with nogil:
+            CefSetOSModalLoop(cefModalLoop)
 
 cpdef py_void SetGlobalClientCallback(py_string name, object callback):
     global g_globalClientCallbacks

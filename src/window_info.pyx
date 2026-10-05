@@ -69,6 +69,11 @@ cdef void SetCefWindowInfo(
         cefWindowInfo.SetAsWindowless(
                 <CefWindowHandle>windowInfo.parentWindowHandle)
 
+    # Since CEF 128 browsers use Chrome runtime style by default, which
+    # does not support all client callbacks that CEF Python implements.
+    # Windowless rendering always uses Alloy style.
+    cefWindowInfo.runtime_style = cef_types.CEF_RUNTIME_STYLE_ALLOY
+
 cdef class WindowInfo:
     cdef public str windowType
     cdef public WindowHandle parentWindowHandle

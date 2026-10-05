@@ -95,7 +95,8 @@ class CefDownloadHandler : public virtual CefBaseRefCounted {
   /// (e.g. alt + link click or link click that returns a `Content-Disposition:
   /// attachment` response from the server). |url| is the target download URL
   /// and |request_method| is the target method (GET, POST, etc). Return true to
-  /// proceed with the download or false to cancel the download.
+  /// proceed with the download or false to cancel the download. This method is
+  /// not called for downloads initiated by CefBrowserHost::StartDownload().
   ///
   /*--cef()--*/
   virtual bool CanDownload(CefRefPtr<CefBrowser> browser,
@@ -106,17 +107,22 @@ class CefDownloadHandler : public virtual CefBaseRefCounted {
 
   ///
   /// Called before a download begins. |suggested_name| is the suggested name
-  /// for the download file. By default the download will be canceled. Execute
-  /// |callback| either asynchronously or in this method to continue the
-  /// download if desired. Do not keep a reference to |download_item| outside of
-  /// this method.
+  /// for the download file. Return true and execute |callback| either
+  /// asynchronously or in this method to continue the download. Return false to
+  /// proceed with default handling (cancel with Alloy style, default download
+  /// handling with Chrome style). To cancel the download with either style
+  /// execute the callback passed to OnDownloadUpdated(). If this method returns
+  /// true and |callback| is destroyed without being executed, the download will
+  /// be canceled. Do not keep a reference to |download_item| outside of this
+  /// method.
   ///
   /*--cef()--*/
-  virtual void OnBeforeDownload(
-      CefRefPtr<CefBrowser> browser,
-      CefRefPtr<CefDownloadItem> download_item,
-      const CefString& suggested_name,
-      CefRefPtr<CefBeforeDownloadCallback> callback) = 0;
+  virtual bool OnBeforeDownload(CefRefPtr<CefBrowser> browser,
+                                CefRefPtr<CefDownloadItem> download_item,
+                                const CefString& suggested_name,
+                                CefRefPtr<CefBeforeDownloadCallback> callback) {
+    return false;
+  }
 
   ///
   /// Called when a download's status or progress information has been updated.

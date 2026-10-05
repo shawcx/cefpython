@@ -425,6 +425,10 @@ def build_cef_projects():
         command.append("-DCMAKE_BUILD_TYPE="+Options.build_type)
         if MAC:
             command.append("-DPROJECT_ARCH=x86_64")
+        if LINUX:
+            # CEF is built with clang upstream. GCC 13+ reports
+            # -Wself-move in ceftests (CEF 154) and CEF uses -Werror.
+            command.append("-DCMAKE_CXX_FLAGS=-Wno-error=self-move")
         command.append("..")
         run_command(command, build_cefclient_dir)
         print("[automate.py] OK")
