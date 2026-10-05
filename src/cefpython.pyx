@@ -628,6 +628,7 @@ def CreateBrowserSync(windowInfo=None,
                       browserSettings=None,
                       navigateUrl="",
                       window_title="",
+                      JavascriptBindings javascript_bindings=None,
                       **kwargs):
     # Alternative names for existing parameters
     if "window_info" in kwargs:
@@ -734,7 +735,16 @@ def CreateBrowserSync(windowInfo=None,
     else:
         cefRequestContext.Assign(g_shared_request_context.get())
 
+    # Javascript bindings are passed to the Renderer process along
+    # with browser creation, so that they are available to page
+    # scripts from the start.
     cdef CefRefPtr[CefDictionaryValue] extra_info
+    if javascript_bindings is not None:
+        extra_info = CefDictionaryValue_Create()
+        extra_info.get().SetDictionary(
+                PyToCefStringValue("javascript_bindings"),
+                PyDictToCefDictionaryValue(
+                        0, "", javascript_bindings.GetRendererData()))
 
     # CEF browser creation.
     with nogil:
@@ -771,6 +781,9 @@ def CreateBrowserSync(windowInfo=None,
     cdef PyBrowser pyBrowser = GetPyBrowser(cefBrowser)
     pyBrowser.SetUserData("__outerWindowHandle",
                           int(windowInfo.parentWindowHandle))
+    if javascript_bindings is not None:
+        # Already sent to the Renderer process, no need to Rebind().
+        pyBrowser.javascriptBindings = javascript_bindings
 
     """
     if cef_window.get():

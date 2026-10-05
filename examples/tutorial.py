@@ -69,10 +69,15 @@ def main():
     }
     cef.Initialize(settings=settings)
     set_global_handler()
+    # Javascript bindings passed to CreateBrowserSync are available
+    # to page scripts from the start, eg. in window.onload.
+    external = External()
+    bindings = create_javascript_bindings(external)
     browser = cef.CreateBrowserSync(url=html_to_data_uri(HTML_code),
-                                    window_title="Tutorial")
+                                    window_title="Tutorial",
+                                    javascript_bindings=bindings)
+    external.browser = browser
     set_client_handlers(browser)
-    set_javascript_bindings(browser)
     cef.MessageLoop()
     cef.Shutdown()
 
@@ -120,15 +125,14 @@ def set_client_handlers(browser):
         browser.SetClientHandler(handler)
 
 
-def set_javascript_bindings(browser):
-    external = External(browser)
+def create_javascript_bindings(external):
     bindings = cef.JavascriptBindings(
             bindToFrames=False, bindToPopups=False)
     bindings.SetProperty("python_property", "This property was set in Python")
     bindings.SetProperty("cefpython_version", cef.GetVersion())
     bindings.SetFunction("html_to_data_uri", html_to_data_uri)
     bindings.SetObject("external", external)
-    browser.SetJavascriptBindings(bindings)
+    return bindings
 
 
 def js_print(browser, lang, event, msg):
@@ -182,8 +186,9 @@ class DisplayHandler(object):
 
 
 class External(object):
-    def __init__(self, browser):
-        self.browser = browser
+    def __init__(self):
+        # Set after the browser was created
+        self.browser = None
 
     def test_multiple_callbacks(self, js_callback):
         """Test both javascript and python callbacks."""

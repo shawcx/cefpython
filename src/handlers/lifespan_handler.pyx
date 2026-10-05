@@ -47,8 +47,20 @@ cdef public cpp_bool LifespanHandler_OnBeforePopup(
     cdef list pyBrowserSettings
     cdef object callback
     cdef py_bool returnValue
+    cdef JavascriptBindings javascriptBindings
     try:
         pyBrowser = GetPyBrowser(cefBrowser, "OnBeforePopup")
+        # Pass javascript bindings to the popup's Renderer process
+        # along with popup creation, see CreateBrowserSync().
+        javascriptBindings = pyBrowser.GetJavascriptBindings()
+        if javascriptBindings is not None\
+                and javascriptBindings.GetBindToPopups():
+            if not extra_info.get():
+                extra_info = CefDictionaryValue_Create()
+            extra_info.get().SetDictionary(
+                    PyToCefStringValue("javascript_bindings"),
+                    PyDictToCefDictionaryValue(
+                            0, "", javascriptBindings.GetRendererData()))
         pyFrame = GetPyFrame(cefFrame)
         pyTargetUrl = CefToPyString(targetUrl)
         pyTargetFrameName = CefToPyString(targetFrameName)

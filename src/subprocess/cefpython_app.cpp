@@ -236,7 +236,19 @@ void CefPythonApp::OnScheduleMessagePumpWork(int64_t delay_ms) {
 void CefPythonApp::OnWebKitInitialized() {
 }
 
-void CefPythonApp::OnBrowserCreated(CefRefPtr<CefBrowser> browser, CefRefPtr<CefDictionaryValue> extra_info) {
+void CefPythonApp::OnBrowserCreated(CefRefPtr<CefBrowser> browser,
+                                    CefRefPtr<CefDictionaryValue> extra_info) {
+    // Javascript bindings passed to CreateBrowserSync() arrive here
+    // before any V8 context is created, so that they are available
+    // to page scripts from the start. Bindings set later using
+    // Browser.SetJavascriptBindings() arrive via process message.
+    if (extra_info.get()
+            && extra_info->HasKey("javascript_bindings")
+            && extra_info->GetType("javascript_bindings")
+                    == VTYPE_DICTIONARY) {
+        SetJavascriptBindings(browser,
+                extra_info->GetDictionary("javascript_bindings")->Copy(false));
+    }
 }
 
 void CefPythonApp::OnBrowserDestroyed(CefRefPtr<CefBrowser> browser) {
@@ -256,10 +268,9 @@ void CefPythonApp::OnContextCreated(CefRefPtr<CefBrowser> browser,
     CefRefPtr<CefDictionaryValue> jsBindings = GetJavascriptBindings(browser);
 
     if (jsBindings.get()) {
-        // Javascript bindings are most probably not yet set for
-        // the main frame, they will be set a moment later due to
-        // process messaging delay. The code seems to be executed
-        // only for iframes.
+        // Bindings for the main frame are already set here when they
+        // were passed to CreateBrowserSync(). Otherwise they will be
+        // set a moment later due to process messaging delay.
         if (frame->IsMain()) {
             DoJavascriptBindingsForFrame(browser, frame, context);
         } else {

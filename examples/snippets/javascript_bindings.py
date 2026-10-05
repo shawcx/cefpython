@@ -39,13 +39,13 @@ g_htmlcode = """
 
 def main():
     cef.Initialize()
-    browser = cef.CreateBrowserSync(url=cef.GetDataUrl(g_htmlcode),
-                                    window_title="Javascript Bindings")
-    browser.SetClientHandler(LoadHandler())
     bindings = cef.JavascriptBindings()
     bindings.SetFunction("py_function", py_function)
     bindings.SetFunction("py_callback", py_callback)
-    browser.SetJavascriptBindings(bindings)
+    browser = cef.CreateBrowserSync(url=cef.GetDataUrl(g_htmlcode),
+                                    window_title="Javascript Bindings",
+                                    javascript_bindings=bindings)
+    browser.SetClientHandler(LoadHandler())
     cef.MessageLoop()
     del browser
     cef.Shutdown()
