@@ -8,6 +8,10 @@
 #endif
 #include "include/base/cef_logging.h"
 
+#if defined(OS_LINUX)
+#include "x11.h"
+#endif
+
 
 bool LifespanHandler::OnBeforePopup(CefRefPtr<CefBrowser> browser,
                                     CefRefPtr<CefFrame> frame,
@@ -60,4 +64,7 @@ void LifespanHandler::OnBeforeClose(CefRefPtr<CefBrowser> browser)
 {
     REQUIRE_UI_THREAD();
     LifespanHandler_OnBeforeClose(browser);
+#if defined(OS_LINUX)
+    DestroyX11WrapperWindow(browser);
+#endif
 }

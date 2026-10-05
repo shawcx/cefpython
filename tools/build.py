@@ -425,14 +425,18 @@ def compile_ask_to_continue():
 
 def clean_cpp_projects_unix():
     delete_files_by_pattern("{0}/*.o".format(CLIENT_HANDLER_DIR))
+    delete_files_by_pattern("{0}/*.d".format(CLIENT_HANDLER_DIR))
     delete_files_by_pattern("{0}/*.a".format(CLIENT_HANDLER_DIR))
 
     delete_files_by_pattern("{0}/*.o".format(SUBPROCESS_DIR))
+    delete_files_by_pattern("{0}/*.d".format(SUBPROCESS_DIR))
+    delete_files_by_pattern("{0}/main_message_loop/*.d".format(SUBPROCESS_DIR))
     delete_files_by_pattern("{0}/*.a".format(SUBPROCESS_DIR))
     delete_files_by_pattern("{0}/subprocess".format(SUBPROCESS_DIR))
     delete_files_by_pattern("{0}/main_message_loop/*.o".format(SUBPROCESS_DIR))
 
     delete_files_by_pattern("{0}/*.o".format(CPP_UTILS_DIR))
+    delete_files_by_pattern("{0}/*.d".format(CPP_UTILS_DIR))
     delete_files_by_pattern("{0}/*.a".format(CPP_UTILS_DIR))
 
 
@@ -454,7 +458,7 @@ def compile_cpp_projects_unix():
 
     os.chdir(CLIENT_HANDLER_DIR)
     if not FAST_FLAG:
-        subprocess.call("rm -f *.o *.a", shell=True)
+        subprocess.call("rm -f *.o *.d *.a", shell=True)
 
     ret = subprocess.call("make -f Makefile", shell=True)
     if ret != 0:
@@ -465,7 +469,7 @@ def compile_cpp_projects_unix():
 
     os.chdir(SUBPROCESS_DIR)
     if not FAST_FLAG:
-        subprocess.call("rm -f *.o *.a", shell=True)
+        subprocess.call("rm -f *.o *.d *.a", shell=True)
         subprocess.call("rm -f subprocess", shell=True)
 
     ret = subprocess.call("make -f Makefile-libcefpythonapp", shell=True)
@@ -490,7 +494,7 @@ def compile_cpp_projects_unix():
 
     os.chdir(CPP_UTILS_DIR)
     if not FAST_FLAG:
-        subprocess.call("rm -f *.o *.a", shell=True)
+        subprocess.call("rm -f *.o *.d *.a", shell=True)
 
     ret = subprocess.call("make -f Makefile", shell=True)
     if ret != 0:

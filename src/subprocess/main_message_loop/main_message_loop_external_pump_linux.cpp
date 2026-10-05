@@ -8,9 +8,10 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <glib.h>
 #include <math.h>
 
-#include <glib.h>
+#include <memory>
 
 #include "include/base/cef_logging.h"
 #include "include/cef_app.h"
@@ -24,25 +25,27 @@
 #if !defined(HANDLE_EINTR)
 #if !DCHECK_IS_ON()
 
-#define HANDLE_EINTR(x) ({ \
-  decltype(x) eintr_wrapper_result; \
-  do { \
-    eintr_wrapper_result = (x); \
-  } while (eintr_wrapper_result == -1 && errno == EINTR); \
-  eintr_wrapper_result; \
-})
+#define HANDLE_EINTR(x)                                     \
+  ({                                                        \
+    decltype(x) eintr_wrapper_result;                       \
+    do {                                                    \
+      eintr_wrapper_result = (x);                           \
+    } while (eintr_wrapper_result == -1 && errno == EINTR); \
+    eintr_wrapper_result;                                   \
+  })
 
 #else
 
-#define HANDLE_EINTR(x) ({ \
-  int eintr_wrapper_counter = 0; \
-  decltype(x) eintr_wrapper_result; \
-  do { \
-    eintr_wrapper_result = (x); \
-  } while (eintr_wrapper_result == -1 && errno == EINTR && \
-           eintr_wrapper_counter++ < 100); \
-  eintr_wrapper_result; \
-})
+#define HANDLE_EINTR(x)                                      \
+  ({                                                         \
+    int eintr_wrapper_counter = 0;                           \
+    decltype(x) eintr_wrapper_result;                        \
+    do {                                                     \
+      eintr_wrapper_result = (x);                            \
+    } while (eintr_wrapper_result == -1 && errno == EINTR && \
+             eintr_wrapper_counter++ < 100);                 \
+    eintr_wrapper_result;                                    \
+  })
 
 #endif  // !DCHECK_IS_ON()
 #endif  // !defined(HANDLE_EINTR)
@@ -55,11 +58,11 @@ class MainMessageLoopExternalPumpLinux : public MainMessageLoopExternalPump {
   ~MainMessageLoopExternalPumpLinux();
 
   // MainMessageLoopStd methods:
-  void Quit() OVERRIDE;
-  int Run() OVERRIDE;
+  void Quit() override;
+  int Run() override;
 
   // MainMessageLoopExternalPump methods:
-  void OnScheduleMessagePumpWork(int64 delay_ms) OVERRIDE;
+  void OnScheduleMessagePumpWork(int64_t delay_ms) override;
 
   // Internal methods used for processing the pump callbacks. They are public
   // for simplicity but should not be used directly. HandlePrepare is called
@@ -73,9 +76,9 @@ class MainMessageLoopExternalPumpLinux : public MainMessageLoopExternalPump {
 
  protected:
   // MainMessageLoopExternalPump methods:
-  void SetTimer(int64 delay_ms) OVERRIDE;
-  void KillTimer() OVERRIDE;
-  bool IsTimerPending() OVERRIDE;
+  void SetTimer(int64_t delay_ms) override;
+  void KillTimer() override;
+  bool IsTimerPending() override;
 
  private:
   // Used to flag that the Run() invocation should return ASAP.
@@ -98,15 +101,17 @@ class MainMessageLoopExternalPumpLinux : public MainMessageLoopExternalPump {
   int wakeup_pipe_read_;
   int wakeup_pipe_write_;
 
-  // Use a scoped_ptr to avoid needing the definition of GPollFD in the header.
-  scoped_ptr<GPollFD> wakeup_gpollfd_;
+  // Use a std::unique_ptr to avoid needing the definition of GPollFD in the
+  // header.
+  std::unique_ptr<GPollFD> wakeup_gpollfd_;
 };
 
 // Return a timeout suitable for the glib loop, -1 to block forever,
 // 0 to return right away, or a timeout in milliseconds from now.
 int GetTimeIntervalMilliseconds(const CefTime& from) {
-  if (from.GetDoubleT() == 0.0)
+  if (from.GetDoubleT() == 0.0) {
     return -1;
+  }
 
   CefTime now;
   now.Now();
@@ -114,8 +119,8 @@ int GetTimeIntervalMilliseconds(const CefTime& from) {
   // Be careful here. CefTime has a precision of microseconds, but we want a
   // value in milliseconds. If there are 5.5ms left, should the delay be 5 or
   // 6?  It should be 6 to avoid executing delayed work too early.
-  int delay = static_cast<int>(
-      ceil((from.GetDoubleT() - now.GetDoubleT()) * 1000.0));
+  int delay =
+      static_cast<int>(ceil((from.GetDoubleT() - now.GetDoubleT()) * 1000.0));
 
   // If this value is negative, then we need to run delayed work soon.
   return delay < 0 ? 0 : delay;
@@ -125,8 +130,7 @@ struct WorkSource : public GSource {
   MainMessageLoopExternalPumpLinux* pump;
 };
 
-gboolean WorkSourcePrepare(GSource* source,
-                           gint* timeout_ms) {
+gboolean WorkSourcePrepare(GSource* source, gint* timeout_ms) {
   *timeout_ms = static_cast<WorkSource*>(source)->pump->HandlePrepare();
   // We always return FALSE, so that our timeout is honored.  If we were
   // to return TRUE, the timeout would be considered to be 0 and the poll
@@ -142,31 +146,26 @@ gboolean WorkSourceCheck(GSource* source) {
 gboolean WorkSourceDispatch(GSource* source,
                             GSourceFunc unused_func,
                             gpointer unused_data) {
-
   static_cast<WorkSource*>(source)->pump->HandleDispatch();
   // Always return TRUE so our source stays registered.
   return TRUE;
 }
 
 // I wish these could be const, but g_source_new wants non-const.
-GSourceFuncs WorkSourceFuncs = {
-  WorkSourcePrepare,
-  WorkSourceCheck,
-  WorkSourceDispatch,
-  NULL
-};
+GSourceFuncs WorkSourceFuncs = {WorkSourcePrepare, WorkSourceCheck,
+                                WorkSourceDispatch, nullptr};
 
 MainMessageLoopExternalPumpLinux::MainMessageLoopExternalPumpLinux()
-  : should_quit_(false),
-    context_(g_main_context_default()),
-    wakeup_gpollfd_(new GPollFD) {
+    : should_quit_(false),
+      context_(g_main_context_default()),
+      wakeup_gpollfd_(new GPollFD) {
   // Create our wakeup pipe, which is used to flag when work was scheduled.
   int fds[2];
   int ret = pipe(fds);
   DCHECK_EQ(ret, 0);
   (void)ret;  // Prevent warning in release mode.
 
-  wakeup_pipe_read_  = fds[0];
+  wakeup_pipe_read_ = fds[0];
   wakeup_pipe_write_ = fds[1];
   wakeup_gpollfd_->fd = wakeup_pipe_read_;
   wakeup_gpollfd_->events = G_IO_IN;
@@ -208,8 +207,9 @@ int MainMessageLoopExternalPumpLinux::Run() {
     bool block = !more_work_is_plausible;
 
     more_work_is_plausible = g_main_context_iteration(context_, block);
-    if (should_quit_)
+    if (should_quit_) {
       break;
+    }
   }
 
   // We need to run the message pump until it is idle. However we don't have
@@ -226,12 +226,12 @@ int MainMessageLoopExternalPumpLinux::Run() {
 }
 
 void MainMessageLoopExternalPumpLinux::OnScheduleMessagePumpWork(
-    int64 delay_ms) {
+    int64_t delay_ms) {
   // This can be called on any thread, so we don't want to touch any state
   // variables as we would then need locks all over. This ensures that if we
   // are sleeping in a poll that we will wake up.
-  if (HANDLE_EINTR(write(wakeup_pipe_write_, &delay_ms, sizeof(int64))) !=
-                   sizeof(int64)) {
+  if (HANDLE_EINTR(write(wakeup_pipe_write_, &delay_ms, sizeof(int64_t))) !=
+      sizeof(int64_t)) {
     NOTREACHED() << "Could not write to the UI message loop wakeup pipe!";
   }
 }
@@ -250,16 +250,18 @@ bool MainMessageLoopExternalPumpLinux::HandleCheck() {
   // The glib poll will tell us whether there was data, so this read shouldn't
   // block.
   if (wakeup_gpollfd_->revents & G_IO_IN) {
-    int64 delay_ms[2];
+    int64_t delay_ms[2];
     const size_t num_bytes =
-        HANDLE_EINTR(read(wakeup_pipe_read_, delay_ms, sizeof(int64) * 2));
-    if (num_bytes < sizeof(int64)) {
+        HANDLE_EINTR(read(wakeup_pipe_read_, delay_ms, sizeof(int64_t) * 2));
+    if (num_bytes < sizeof(int64_t)) {
       NOTREACHED() << "Error reading from the wakeup pipe.";
     }
-    if (num_bytes == sizeof(int64))
+    if (num_bytes == sizeof(int64_t)) {
       OnScheduleWork(delay_ms[0]);
-    if (num_bytes == sizeof(int64) * 2)
+    }
+    if (num_bytes == sizeof(int64_t) * 2) {
       OnScheduleWork(delay_ms[1]);
+    }
   }
 
   if (GetTimeIntervalMilliseconds(delayed_work_time_) == 0) {
@@ -275,7 +277,7 @@ void MainMessageLoopExternalPumpLinux::HandleDispatch() {
   OnTimerTimeout();
 }
 
-void MainMessageLoopExternalPumpLinux::SetTimer(int64 delay_ms) {
+void MainMessageLoopExternalPumpLinux::SetTimer(int64_t delay_ms) {
   DCHECK_GT(delay_ms, 0);
 
   CefTime now;
@@ -293,11 +295,10 @@ bool MainMessageLoopExternalPumpLinux::IsTimerPending() {
   return GetTimeIntervalMilliseconds(delayed_work_time_) > 0;
 }
 
-} // namespace
+}  // namespace
 
 // static
-scoped_ptr<MainMessageLoopExternalPump>
+std::unique_ptr<MainMessageLoopExternalPump>
 MainMessageLoopExternalPump::Create() {
-  return scoped_ptr<MainMessageLoopExternalPump>(
-      new MainMessageLoopExternalPumpLinux());
+  return std::make_unique<MainMessageLoopExternalPumpLinux>();
 }

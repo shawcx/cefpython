@@ -11,6 +11,7 @@
 
 #include <gtk/gtk.h>
 
+#include "include/base/cef_callback_forward.h"
 #include "include/cef_dialog_handler.h"
 #include "include/cef_jsdialog_handler.h"
 
@@ -19,14 +20,18 @@ class ClientDialogHandlerGtk : public CefDialogHandler,
  public:
   ClientDialogHandlerGtk();
 
+  ClientDialogHandlerGtk(const ClientDialogHandlerGtk&) = delete;
+  ClientDialogHandlerGtk& operator=(const ClientDialogHandlerGtk&) = delete;
+
   // CefDialogHandler methods.
   bool OnFileDialog(CefRefPtr<CefBrowser> browser,
                     FileDialogMode mode,
                     const CefString& title,
                     const CefString& default_file_path,
                     const std::vector<CefString>& accept_filters,
-                    int selected_accept_filter,
-                    CefRefPtr<CefFileDialogCallback> callback) OVERRIDE;
+                    const std::vector<CefString>& accept_extensions,
+                    const std::vector<CefString>& accept_descriptions,
+                    CefRefPtr<CefFileDialogCallback> callback) override;
 
   // CefJSDialogHandler methods.
   bool OnJSDialog(CefRefPtr<CefBrowser> browser,
@@ -35,14 +40,40 @@ class ClientDialogHandlerGtk : public CefDialogHandler,
                   const CefString& message_text,
                   const CefString& default_prompt_text,
                   CefRefPtr<CefJSDialogCallback> callback,
-                  bool& suppress_message) OVERRIDE;
+                  bool& suppress_message) override;
   bool OnBeforeUnloadDialog(CefRefPtr<CefBrowser> browser,
                             const CefString& message_text,
                             bool is_reload,
-                            CefRefPtr<CefJSDialogCallback> callback) OVERRIDE;
-  void OnResetDialogState(CefRefPtr<CefBrowser> browser) OVERRIDE;
+                            CefRefPtr<CefJSDialogCallback> callback) override;
+  void OnResetDialogState(CefRefPtr<CefBrowser> browser) override;
 
  private:
+  struct OnFileDialogParams {
+    CefRefPtr<CefBrowser> browser;
+    FileDialogMode mode;
+    CefString title;
+    CefString default_file_path;
+    std::vector<CefString> accept_filters;
+    std::vector<CefString> accept_extensions;
+    std::vector<CefString> accept_descriptions;
+    CefRefPtr<CefFileDialogCallback> callback;
+  };
+  void OnFileDialogContinue(const OnFileDialogParams& params,
+                            GtkWindow* window);
+
+  struct OnJSDialogParams {
+    CefRefPtr<CefBrowser> browser;
+    CefString origin_url;
+    JSDialogType dialog_type;
+    CefString message_text;
+    CefString default_prompt_text;
+    CefRefPtr<CefJSDialogCallback> callback;
+  };
+  void OnJSDialogContinue(const OnJSDialogParams& params, GtkWindow* window);
+
+  void GetWindowAndContinue(CefRefPtr<CefBrowser> browser,
+                            base::OnceCallback<void(GtkWindow*)> callback);
+
   static void OnDialogResponse(GtkDialog* dialog,
                                gint response_id,
                                ClientDialogHandlerGtk* handler);
@@ -51,7 +82,6 @@ class ClientDialogHandlerGtk : public CefDialogHandler,
   CefRefPtr<CefJSDialogCallback> js_dialog_callback_;
 
   IMPLEMENT_REFCOUNTING(ClientDialogHandlerGtk);
-  DISALLOW_COPY_AND_ASSIGN(ClientDialogHandlerGtk);
 };
 
 #endif  // CEF_TESTS_CEFCLIENT_BROWSER_DIALOG_HANDLER_GTK_H_

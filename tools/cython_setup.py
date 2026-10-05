@@ -21,6 +21,7 @@ import platform
 import Cython
 import copy
 import os
+import subprocess
 
 # Must monkey patch Cython's ModuleNode to inject custom C++ code
 # in the generated cefpython.cpp. This is a fix for an error on Mac:
@@ -271,6 +272,20 @@ def set_compiler_options(options):
     options["extra_link_args"] = extra_link_args
 
 
+# GTK 3 and X11 packages used by the Linux C++ code. Must match
+# the pkg-config packages in src/*/Makefile.
+LINUX_PKG_CONFIG_PACKAGES = ["gtk+-3.0", "gtk+-unix-print-3.0", "x11"]
+
+
+def pkg_config(option, prefix):
+    """Run pkg-config for Linux packages and strip the flag prefix
+    eg. "-I" from each returned value."""
+    output = subprocess.check_output(
+            ["pkg-config", option] + LINUX_PKG_CONFIG_PACKAGES).decode()
+    return [flag[len(prefix):] for flag in output.split()
+            if flag.startswith(prefix)]
+
+
 def get_include_dirs():
     print("[cython_setup.py] Prepare include directories")
     include_dirs = list()
@@ -307,30 +322,7 @@ def get_include_dirs():
     elif LINUX:
         include_dirs.extend([LINUX_DIR])
         include_dirs.extend(common_include_dirs)
-        include_dirs.extend([
-            '/usr/include/gtk-2.0',
-            '/usr/include/glib-2.0',
-            '/usr/include/gtk-unix-print-2.0',
-            '/usr/include/cairo',
-            '/usr/include/pango-1.0',
-            '/usr/include/harfbuzz',
-            '/usr/include/gdk-pixbuf-2.0',
-            '/usr/include/atk-1.0',
-            # Ubuntu
-            '/usr/lib/x86_64-linux-gnu/gtk-2.0/include',
-            '/usr/lib/x86_64-linux-gnu/gtk-unix-print-2.0',
-            '/usr/lib/x86_64-linux-gnu/glib-2.0/include',
-            '/usr/lib/i386-linux-gnu/gtk-2.0/include',
-            '/usr/lib/i386-linux-gnu/gtk-unix-print-2.0',
-            '/usr/lib/i386-linux-gnu/glib-2.0/include',
-            # Fedora
-            '/usr/lib64/gtk-2.0/include',
-            '/usr/lib64/gtk-unix-print-2.0',
-            '/usr/lib64/glib-2.0/include',
-            '/usr/lib/gtk-2.0/include',
-            '/usr/lib/gtk-2.0/gtk-unix-print-2.0',
-            '/usr/lib/glib-2.0/include',
-        ])
+        include_dirs.extend(pkg_config("--cflags-only-I", "-I"))
     return include_dirs
 
 
@@ -381,14 +373,8 @@ def get_libraries():
             "cpp_utils",
         ])
     elif LINUX:
+        libraries.extend(pkg_config("--libs-only-l", "-l"))
         libraries.extend([
-            "X11",
-            "gobject-2.0",
-            "glib-2.0",
-            "gtk-x11-2.0",
-            "gdk-x11-2.0",
-            # "gdk_pixbuf-2.0",
-            # "gdk_pixbuf_xlib-2.0",
             # CEF and CEF Python libraries
             "cef_dll_wrapper",
             "cefpythonapp",

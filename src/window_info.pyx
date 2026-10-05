@@ -52,10 +52,16 @@ cdef void SetCefWindowInfo(
             y = int(windowInfo.windowRect[1])
             width = int(windowInfo.windowRect[2] - windowInfo.windowRect[0])
             height = int(windowInfo.windowRect[3] - windowInfo.windowRect[1])
+            # When the parent window uses a non-default visual (GTK 3)
+            # the browser is embedded in a wrapper window, see x11.cpp.
+            parent = x11.GetX11BrowserParentWindow(
+                    <unsigned long>windowInfo.parentWindowHandle,
+                    x, y, width, height)
+            if parent != <unsigned long>windowInfo.parentWindowHandle:
+                x = 0
+                y = 0
             windowRect = CefRect(x, y, width, height)
-            cefWindowInfo.SetAsChild(
-                    <CefWindowHandle>windowInfo.parentWindowHandle,
-                    windowRect)
+            cefWindowInfo.SetAsChild(<CefWindowHandle>parent, windowRect)
 
     # POPUP WINDOW - Windows only
     IF UNAME_SYSNAME == "Windows":
