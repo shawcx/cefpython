@@ -39,14 +39,9 @@ g_datauri_data = """
     }
     function onload_helper() {
         if (!window.hasOwnProperty("cefpython_version")) {
-            // Sometimes page could finish loading before javascript
-            // bindings are available. Javascript bindings are sent
-            // from the browser process to the renderer process via
-            // IPC messaging and it can take some time (5-10ms). If
-            // the page loads very fast window.onload could execute
-            // before bindings are available.
-            setTimeout(onload_helper, 10);
-            return;
+            // Javascript bindings passed to CreateBrowserSync()
+            // must be available before page scripts run.
+            throw new Error("Javascript bindings not available");
         }
         version = cefpython_version
         print("CEF Python: <b>"+version.version+"</b>");
@@ -190,27 +185,6 @@ class MainTest_IsolatedTest(unittest.TestCase):
                                     global_handler._OnAfterCreated)
         subtest_message("cef.SetGlobalClientCallback() ok")
 
-        # Create browser
-        browser_settings = {
-            "inherit_client_handlers_for_popups": False,
-        }
-        browser = cef.CreateBrowserSync(url=g_datauri,
-                                        settings=browser_settings)
-        self.assertIsNotNone(browser, "Browser object")
-        browser.SetFocus(True)
-        subtest_message("cef.CreateBrowserSync() ok")
-
-        # Client handlers
-        display_handler2 = DisplayHandler2(self)
-        v8context_handler = V8ContextHandler(self)
-        client_handlers = [LoadHandler(self, g_datauri),
-                           DisplayHandler(self),
-                           display_handler2,
-                           v8context_handler]
-        for handler in client_handlers:
-            browser.SetClientHandler(handler)
-        subtest_message("browser.SetClientHandler() ok")
-
         # Javascript bindings
         external = External(self)
         bindings = cef.JavascriptBindings(
@@ -227,6 +201,32 @@ class MainTest_IsolatedTest(unittest.TestCase):
                              external.test_property3_function)
         bindings.SetProperty("cefpython_version", cef.GetVersion())
         bindings.SetObject("external", external)
+
+        # Create browser. Javascript bindings passed here are available
+        # to page scripts from the start.
+        browser_settings = {
+            "inherit_client_handlers_for_popups": False,
+        }
+        browser = cef.CreateBrowserSync(url=g_datauri,
+                                        settings=browser_settings,
+                                        javascript_bindings=bindings)
+        self.assertIsNotNone(browser, "Browser object")
+        browser.SetFocus(True)
+        subtest_message("cef.CreateBrowserSync() ok")
+
+        # Client handlers
+        display_handler2 = DisplayHandler2(self)
+        v8context_handler = V8ContextHandler(self)
+        client_handlers = [LoadHandler(self, g_datauri),
+                           DisplayHandler(self),
+                           display_handler2,
+                           v8context_handler]
+        for handler in client_handlers:
+            browser.SetClientHandler(handler)
+        subtest_message("browser.SetClientHandler() ok")
+
+        # Rebinding after creation must keep working
+        self.assertIs(browser.GetJavascriptBindings(), bindings)
         browser.SetJavascriptBindings(bindings)
         subtest_message("browser.SetJavascriptBindings() ok")
 
@@ -241,8 +241,7 @@ class MainTest_IsolatedTest(unittest.TestCase):
         req = cef.Request.CreateRequest()
         req_file = os.path.dirname(os.path.abspath(__file__))
         req_file = os.path.join(req_file, "main_test.py")
-        if sys.version_info.major > 2:
-            req_file = req_file.encode("utf-8")
+        req_file = req_file.encode("utf-8")
         req_data = [b"--key=value", b"@"+req_file]
         req.SetMethod("POST")
         req.SetPostData(req_data)
@@ -342,31 +341,22 @@ class DisplayHandler2(object):
 class V8ContextHandler(object):
     def __init__(self, test_case):
         self.test_case = test_case
-        self.OnContextCreatedFirstCall_True = False
-        self.OnContextCreatedSecondCall_True = False
-        self.OnContextReleased_True = False
+        self.OnContextCreated_True = False
 
     def OnContextCreated(self, browser, frame):
-        """CEF creates one context when creating browser and this one is
-           released immediately. Then when it loads url another context is
-           created."""
-        if not self.OnContextCreatedFirstCall_True:
-            self.OnContextCreatedFirstCall_True = True
-        else:
-            self.test_case.assertFalse(self.OnContextCreatedSecondCall_True)
-            self.OnContextCreatedSecondCall_True = True
+        """Called when loading url. Before Chromium 123 CEF also created
+           a context for the initial empty document and released it
+           immediately, this no longer happens. Since Chromium 133 it is
+           called again for the main frame when DevTools are opened."""
+        self.OnContextCreated_True = True
         self.test_case.assertEqual(browser.GetIdentifier(), MAIN_BROWSER_ID)
         self.test_case.assertTrue(frame.GetIdentifier())
 
     def OnContextReleased(self, browser, frame):
-        """This gets called only for the initial empty context, see comment
-           in OnContextCreated. This should never get called for the main frame
-           of the main browser, because it happens during app exit and there
-           isn't enough time for the IPC messages to go through."""
-        self.test_case.assertFalse(self.OnContextReleased_True)
-        self.OnContextReleased_True = True
-        self.test_case.assertEqual(browser.GetIdentifier(), MAIN_BROWSER_ID)
-        self.test_case.assertTrue(frame.GetIdentifier())
+        """This should never get called for the main frame of the main
+           browser, because it happens during app exit and there isn't
+           enough time for the IPC messages to go through."""
+        self.test_case.fail("OnContextReleased should not be called")
 
 class External(object):
     """Javascript 'window.external' object."""
