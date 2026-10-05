@@ -90,7 +90,7 @@ Mac | 3.12 / 3.13 / 3.14 | No | - | Not yet ported to CEF 154
   [Issues labelled Knowledge Base](../../issues?q=is%3Aissue+is%3Aopen+label%3A%22Knowledge+Base%22)
 - To search documentation use GitHub "This repository" search
   at the top. To narrow results to documentation only select
-  "Markdown" in the right pane.
+  "Markdown" in the side pane
 
 ## Support development
 
