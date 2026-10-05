@@ -52,6 +52,13 @@ Table of contents:
 * [v66+ Changes to Mac apps that integrate into existing message loop (Qt, wxPython)](#v66-changes-to-mac-apps-that-integrate-into-existing-message-loop-qt-wxpython)
 * [v66.1+ Navigation urls passed to CreateBrowserSync or LoadUrl methods need to be encoded by app code](#v661-navigation-urls-passed-to-createbrowsersync-or-loadurl-methods-need-to-be-encoded-by-app-code)
 * [v67+ Do not call the 'WindowUtils.OnSize' function](#v67-do-not-call-the-windowutilsonsize-function)
+* [v154+ Python 3.12+ is required](#v154-python-312-is-required)
+* [v154+ Linux requires GTK 3](#v154-linux-requires-gtk-3)
+* [v154+ Pass javascript bindings to CreateBrowserSync](#v154-pass-javascript-bindings-to-createbrowsersync)
+* [v154+ Popups are not blocked](#v154-popups-are-not-blocked)
+* [v154+ Removed and renamed API](#v154-removed-and-renamed-api)
+* [v154+ Removed settings](#v154-removed-settings)
+* [v154+ Behavior changes in Chromium](#v154-behavior-changes-in-chromium)
 
 
 ## v49+ Distribution packages
@@ -506,3 +513,122 @@ Call instead the new `WindowUtils`.[UpdateBrowserSize](../api/WindowUtils.md#upd
 function. Except when you use the `pywin32.py` example, in such case
 `WindowUtils.OnSize` must be called.
 See [Issue #464](../../../issues/464) for more details.
+
+
+## v154+ Python 3.12+ is required
+
+Python 2.7 and Python 3 versions older than 3.12 are no longer
+supported. The package installs from a wheel, `setup.py install`
+is no longer used.
+
+
+## v154+ Linux requires GTK 3
+
+GTK 2 is no longer supported. The `gtk2.py` example was removed,
+use the `gtk3.py` example. In the `qt.py` example PyQt4, PySide
+and PySide2 were replaced with PyQt6 and PySide6 (PyQt5 is still
+supported).
+
+Browsers can be embedded in GTK 3 and wxPython windows that use
+a non-default X11 visual. CEF Python creates a wrapper window
+for the browser in such case, see `GetX11BrowserParentWindow`
+in `src/client_handler/x11.cpp`. Keep using Browser.[SetBounds](../api/Browser.md#setbounds)
+to resize the browser.
+
+
+## v154+ Pass javascript bindings to CreateBrowserSync
+
+Javascript bindings set with Browser.[SetJavascriptBindings](../api/Browser.md#setjavascriptbindings)
+right after creating the browser may not yet be available when
+a fast-loading page runs its scripts, eg. in `window.onload`.
+Pass the bindings using the new "javascript_bindings" parameter
+of cefpython.[CreateBrowserSync](../api/cefpython.md#createbrowsersync)
+instead, so that they are available from the start. See the
+`tutorial.py` example. Bindings created with `bindToPopups=True`
+are also available from the start in popups.
+
+
+## v154+ Popups are not blocked
+
+Since Chromium 128 the popup blocker blocks `window.open()` calls
+without a user gesture. CEF Python passes the
+`disable-popup-blocking` command line switch by default to keep
+the previous behavior. To enable the popup blocker pass your own
+value for this switch in [CommandLineSwitches](../api/CommandLineSwitches.md).
+
+
+## v154+ Removed and renamed API
+
+All browsers are created using the CEF "Alloy" runtime style, which
+supports all the client callbacks that CEF Python implements.
+
+Removed:
+- `cef.CookieManager.CreateManager` and `GetBlockingManager`, use
+  `GetGlobalManager`
+- `PyCookieManager.SetStoragePath` and `SetSupportedSchemes`
+- `DpiAware.EnableHighDpiSupport`, use `DpiAware.SetProcessDpiAware`
+  or a DPI awareness manifest
+- `Browser.SetMouseCursorChangeDisabled` and
+  `IsMouseCursorChangeDisabled`
+- `Frame.LoadString`
+- `WebPluginInfo` object, `RequestHandler.OnBeforePluginLoad` and
+  `OnPluginCrashed` callbacks (plugins are no longer supported by
+  Chromium)
+- `RequestHandler.CanGetCookies` and `CanSetCookie` callbacks, use
+  the new `CanSendCookie` and `CanSaveCookie` callbacks
+- `RequestHandler.GetCookieManager` callback
+
+Renamed or changed:
+- `Browser.GetFrame(name)` is now `Browser.GetFrameByName(name)`
+- `Response.GetHeader(name)` is now `Response.GetHeaderByName(name)`
+- `Browser.Find()` no longer takes a `searchId` argument
+- Frame identifiers are strings, eg. in `Frame.GetIdentifier()`
+  and `Browser.GetFrameByIdentifier()`
+- The `OnCursorChange` callback is now called on DisplayHandler
+  objects (previously RenderHandler)
+- `cef.SetOsModalLoop()` does nothing on platforms other than
+  Windows
+- `cef.REFERRER_POLICY_LAST_VALUE` and
+  `cef.ERR_NO_SSL_VERSIONS_ENABLED` keep their old values but are
+  no longer used by CEF
+
+Added:
+- `Frame.SendProcessMessage`
+- `Request.SetReferrer`, `GetReferrerURL` and `GetReferrerPolicy`
+
+
+## v154+ Removed settings
+
+These settings were removed from CEF. Setting them raises an
+"Invalid key" exception, use the command line switches listed
+instead where available:
+- ApplicationSettings: `ignore_certificate_errors` (use the
+  `ignore-certificate-errors` switch), `single_process`
+  (`single-process` switch, for debugging only),
+  `accept_language_list` (`lang` switch or the BrowserSettings
+  option of the same name where available), `product_version`
+  (use `user_agent`), `net_security_expiration_enabled`,
+  `user_data_path` (use `cache_path`)
+- BrowserSettings: `web_security_disabled` (`disable-web-security`
+  switch), `file_access_from_file_urls_allowed`,
+  `universal_access_from_file_urls_allowed`
+  (`allow-file-access-from-files` switch), `plugins_disabled`,
+  `application_cache_disabled`
+
+These settings are still accepted, but are ignored and log
+a "DEPRECATED" debug message: `pack_loading_disabled`,
+`persist_user_preferences`, `databases_disabled`.
+
+
+## v154+ Behavior changes in Chromium
+
+- A V8 context is no longer created and released for the initial
+  empty document, so `V8ContextHandler.OnContextCreated` is called
+  once when loading a url. It is called again for the main frame
+  when DevTools are opened.
+- The accessibility tree no longer reports `layoutComplete`
+  events, and location changes are reported only when an element
+  moves after the tree was created.
+- In off-screen rendering mode, mouse and keyboard events sent at
+  the moment the page finished loading may be dropped. Wait for
+  the page to be ready for input.

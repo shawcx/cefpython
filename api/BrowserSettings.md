@@ -8,7 +8,6 @@ Table of contents:
 * [Introduction](#introduction)
 * [Settings](#settings)
   * [Font settings](#font-settings)
-  * [application_cache_disabled](#application_cache_disabled)
   * [background_color](#background_color)
   * [databases_disabled](#databases_disabled)
   * [default_encoding](#default_encoding)
@@ -23,7 +22,6 @@ Table of contents:
   * [shrink_standalone_images_to_fit](#shrink_standalone_images_to_fit)
   * [tab_to_links_disabled](#tab_to_links_disabled)
   * [text_area_resize_disabled](#text_area_resize_disabled)
-  * [universal_access_from_file_urls_allowed](#universal_access_from_file_urls_allowed)
   * [user_style_sheet_location](#user_style_sheet_location)
   * [webgl_disabled](#webgl_disabled)
   * [windowless_frame_rate](#windowless_frame_rate)
@@ -56,11 +54,6 @@ In some cases, the default values of settings that are suggested by its name may
 * minimum_logical_font_size (int)
 
 
-### application_cache_disabled
-
-(bool) Controls whether the application cache can be used. Also configurable using the --disable-application-cache switch.
-
-
 ### background_color
 
 (int)
@@ -80,7 +73,7 @@ in a known order. Equivalent to the `SkColor` type in Chromium.
 
 ### databases_disabled
 
-(bool) Controls whether databases can be used. Also configurable using the --disable-databases switch.
+Deprecated. This setting was removed in CEF 139 and is ignored.
 
 
 ### default_encoding

@@ -7,7 +7,9 @@ Table of contents:
 * [Support](#support)
 * [Support development](#support-development)
 * [Seeking sponsors](#seeking-sponsors)
+  * [Previous sponsors](#previous-sponsors)
 * [API](#api)
+  * [API index](#api-index)
 
 
 ## Introduction
@@ -41,23 +43,24 @@ PyGame, PyOpenGL, PyWin32, PySide and PySDL2.
 
 ## Install
 
-Command to install with pip:
+This branch targets CEF 154 (Chromium 154) and Python 3.12+.
+Packages for it are not yet published on PyPI, see the
+[Build instructions](docs/Build-instructions.md) to build and
+install the wheel.
+
+The last release on PyPI is v66.1 for older Python versions:
 
 ```
 pip install cefpython3==66.1
 ```
 
-Hosted at [pypi/cefpython3](https://pypi.python.org/pypi/cefpython3). On Linux pip 8.1+ is required.
-
-You can also download packages for offline installation available on the [GitHub Releases](../../releases) pages.
-
 Below is a table with supported platforms, python versions and architectures.
 
-OS | Py2 | Py3 | 32bit | 64bit | Requirements
---- | --- | --- | --- | --- | ---
-Windows | 2.7 | 3.4 / 3.5 / 3.6 / 3.7 / 3.8 / 3.9 | Yes | Yes | Windows 7+ (Note that Python 3.9 supports Windows 8.1+)
-Linux | 2.7 | 3.4 / 3.5 / 3.6 / 3.7 | Yes | Yes | Debian 8+, Ubuntu 14.04+,<br> Fedora 24+, openSUSE 13.3+
-Mac | 2.7 | 3.4 / 3.5 / 3.6 / 3.7 | No | Yes | MacOS 10.9+
+OS | Py3 | 32bit | 64bit | Status
+--- | --- | --- | --- | ---
+Linux | 3.12 / 3.13 / 3.14 | No | Yes | Tested with CEF 154 on Ubuntu 24.04 (X11)
+Windows | 3.12 / 3.13 / 3.14 | - | Yes | Not yet ported to CEF 154 (upstream tested CEF 123)
+Mac | 3.12 / 3.13 / 3.14 | No | - | Not yet ported to CEF 154
 
 
 ## Examples

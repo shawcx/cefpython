@@ -36,7 +36,7 @@ Table of contents:
   * [GetClientCallback](#getclientcallback)
   * [GetClientCallbacksDict](#getclientcallbacksdict)
   * [GetFocusedFrame](#getfocusedframe)
-  * [GetFrame](#getframe)
+  * [GetFrameByName](#getframebyname)
   * [GetFrameByIdentifier](#getframebyidentifier)
   * [GetFrames](#getframes)
   * [GetFrameCount](#getframecount)
@@ -366,7 +366,7 @@ Get client callbacks as a dictionary.
 Returns the focused [Frame](Frame.md) for the browser window.
 
 
-### GetFrame
+### GetFrameByName
 
 | Parameter | Type |
 | --- | --- |
@@ -971,7 +971,11 @@ Set whether the browser is focused.
 | bindings | [JavascriptBindings](JavascriptBindings.md) |
 | __Return__ | void |
 
-Set javascript bindings.
+Set javascript bindings. They are sent to the renderer process
+asynchronously, so a page that is already loading may run its
+scripts before they are available. To have bindings available
+from the start pass them to cefpython.[CreateBrowserSync](cefpython.md#createbrowsersync)
+using the "javascript_bindings" parameter.
 
 
 ### SetUserData

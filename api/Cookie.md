@@ -4,7 +4,7 @@
 # Cookie (class)
 
 See also [CookieManager](CookieManager.md).SetCookie(), [CookieVisitor](CookieVisitor.md).Visit()
-and [ResourceHandler](ResourceHandler.md).CanGetCookie / CanSetCookie.
+and [RequestHandler](RequestHandler.md).CanSendCookie / CanSaveCookie.
 
 
 Table of contents:

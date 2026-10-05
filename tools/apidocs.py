@@ -78,8 +78,11 @@ def update_readme_file(api_links):
         categories_contents = categories_contents.replace("###", "####")
         categories_contents = categories_contents.replace("](", "](api/")
     re_find = r"### API categories[\s\S]+### API index"
-    assert re.search(re_find, readme_contents), ("API categories not found"
-                                                 " in README")
+    if not re.search(re_find, readme_contents):
+        # README.md links to api/ docs instead of embedding the index
+        print("Skipped: /%s (no API categories section)"
+              % os.path.basename(readme_file))
+        return
     contents = re.sub(re_find,
                       (u"### API categories\r\n\r\n{categories_contents}"
                        u"\r\n### API index"

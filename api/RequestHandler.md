@@ -24,7 +24,8 @@ Table of contents:
   * [OnQuotaRequest](#onquotarequest)
   * [OnResourceRedirect](#onresourceredirect)
   * [OnResourceResponse](#onresourceresponse)
-  * [OnPluginCrashed](#onplugincrashed)
+  * [CanSendCookie](#cansendcookie)
+  * [CanSaveCookie](#cansavecookie)
   * [OnProtocolExecution](#onprotocolexecution)
   * [OnRendererProcessTerminated](#onrendererprocessterminated)
 
@@ -214,16 +215,36 @@ _OnResourceResponse() method in the old v31 [wxpython-response.py]
 example.
 
 
-### OnPluginCrashed
+### CanSendCookie
 
 | Parameter | Type |
 | --- | --- |
 | browser | [Browser](Browser.md) |
-| plugin_path | string |
-| __Return__ | void |
+| frame | [Frame](Frame.md) |
+| request | [Request](Request.md) |
+| cookie | [Cookie](Cookie.md) |
+| __Return__ | bool |
 
-Called when a plugin has crashed. |plugin_path| is the path of the plugin
-that crashed.
+Called on the IO thread before a resource request is sent. Return
+True if the specified cookie can be sent with the request or False
+otherwise. Returns True by default when not implemented.
+
+
+### CanSaveCookie
+
+| Parameter | Type |
+| --- | --- |
+| browser | [Browser](Browser.md) |
+| frame | [Frame](Frame.md) |
+| request | [Request](Request.md) |
+| response | [Response](Response.md) |
+| cookie | [Cookie](Cookie.md) |
+| __Return__ | bool |
+
+Called on the IO thread after a resource response is received.
+Return True if the specified cookie returned with the response can
+be saved or False otherwise. Returns True by default when not
+implemented.
 
 
 ### OnProtocolExecution

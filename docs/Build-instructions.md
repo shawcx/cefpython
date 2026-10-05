@@ -22,8 +22,8 @@ Table of contents:
 
 ## Preface
 
-These instructions are for the new releases of CEF Python v50+.
-For the old v31 release see the build instructions on Wiki pages.
+These instructions are for CEF Python v154+ (CEF 154, Python 3.12+).
+Only Linux was ported to and tested with CEF 154 so far.
 
 If you would like to quickly build cefpython then see the
 [Quick build instructions for Windows](#quick-build-instructions-for-windows)
@@ -35,10 +35,10 @@ instructions you should be able to build cefpython in less than
 
 There are several types of builds described in this document:
 
-1. You can build CEF Python using prebuilt CEF binaries and libraries
-   that were uploaded to GH releases
-2. You can build CEF Python using prebuilt CEF binaries from
-   Spotify Automated Builds.
+1. You can build CEF Python using prebuilt CEF binaries from
+   Spotify Automated Builds (recommended).
+2. You can build CEF Python using prebuilt CEF binaries and libraries
+   that were uploaded to GH releases (older versions only).
 3. You can build upstream CEF from sources, but note that building CEF
    is a long process that can take hours.
 
@@ -48,105 +48,69 @@ Before you can build CEF Python or CEF you must satisfy
 
 ## Quick build instructions for Windows
 
-Complete steps for building CEF Python v50+ with Python 2.7 using
-prebuilt binaries and libraries from GitHub Releases.
+Windows was not yet ported to CEF 154. Upstream tested CEF 123 on
+Windows. The steps should be the same as for Linux below, with
+these differences:
 
-When cloning repository you should checkout a stable branch which
-are named "cefpythonXX" where XX is Chromium version number.
+1) Install Python 3.12+ from python.org, Visual Studio 2022 with
+   the "Desktop development with C++" workload, and add
+   [ninja](https://github.com/ninja-build/ninja) and
+   [cmake](https://cmake.org/download/) to PATH.
 
-1) Tested and works fine on Windows 7 64-bit
+2) Download the "windows64" CEF binary distribution instead of
+   "linux64".
 
-2) Download [ninja](https://github.com/ninja-build/ninja) 1.7.2 or later
-   and add it to PATH.
-
-3) Download [cmake](https://cmake.org/download/) and add
-   it to PATH.
-
-4) For Python 2.7 Install "Visual C++ Compiler for Python 2.7"
-  from [here](https://www.microsoft.com/en-us/download/details.aspx?id=44266)
-
-5) For Python 2.7 and when using using "Visual C++ compiler for Python 2.7"
-   you have to install "Visual C++ 2008 Redistributable Package"
-   from [here](https://www.microsoft.com/en-us/download/details.aspx?id=29)
-   and [here](https://www.microsoft.com/en-us/download/details.aspx?id=15336)
-
-6) Clone cefpython, checkout for example "cefpython57" branch
-   that includes Chromium v57, then create a build/ directory and enter it:
-```
-git clone https://github.com/cztomczak/cefpython.git
-cd cefpython/
-git checkout cefpython57
-mkdir build/
-cd build/
-```
-
-7) Install python dependencies:
-```
-pip install --upgrade -r ../tools/requirements.txt
-```
-
-8) Download Windows binaries and libraries from
-   [GH releases](https://github.com/cztomczak/cefpython/tags)
-   tagged e.g. 'v57-upstream' when building v57. The version
-   of the binaries must match exactly the CEF version from
-   the "cefpython/src/version/cef_version_win.h" file
-   (the CEF_VERSION constant).
-
-8) Extract the archive in the "build/" directory.
-
-9) Build cefpython and run examples (xx.x is version number):
-```
-python ../tools/build.py xx.x
-```
+3) Run the build tools using `venv\Scripts\python.exe`.
 
 
 ## Quick build instructions for Linux
 
-Complete steps for building CEF Python v50+ using prebuilt
-binaries and libraries from GitHub Releases.
+Complete steps for building CEF Python v154 using prebuilt CEF
+binaries from Spotify Automated Builds. Tested on Ubuntu 24.04
+64-bit with Python 3.12, 3.13 and 3.14.
 
-When cloning repository you should checkout a stable branch which
-are named "cefpythonXX" where XX is Chromium version number.
+1) Install required packages:
 
-1) Tested and works fine on Ubuntu 14.04 64-bit
-
-2) Download [ninja](https://github.com/ninja-build/ninja) 1.7.1 or later
-   and copy it to /usr/bin and chmod 755.
-
-3) Install required packages (tested and works with: cmake 2.8.12
-   and g++ 4.8.4):
 ```
-sudo apt-get install python-dev cmake g++ libgtk2.0-dev
+sudo apt install cmake ninja-build g++ pkg-config libgtk-3-dev python3-dev python3-venv
 ```
 
-4) Clone cefpython, checkout for example "cefpython57" branch
-   that includes Chromium v57, then create build/ directory and enter it:
+2) Clone cefpython, then create a venv and a build/ directory:
+
 ```
 git clone https://github.com/cztomczak/cefpython.git
 cd cefpython/
-git checkout cefpython57
+python3 -m venv venv
+venv/bin/pip install --upgrade -r tools/requirements.txt
 mkdir build/
 cd build/
 ```
 
-5) Install python dependencies:
+3) Download the "Standard Distribution" for "linux64" from
+   [Spotify Automated Builds](https://cef-builds.spotifycdn.com/index.html).
+   Its version must match exactly the CEF version from the
+   "cefpython/src/version/cef_version_linux.h" file (the
+   CEF_VERSION constant). Extract it in the "build/" directory.
+
+4) Build libcef_dll_wrapper and create the prebuilt binaries
+   directory (eg. "build/cef154_154.0.33+ga03e714+chromium-154.0.8037.94_linux64/"):
+
 ```
-sudo pip install --upgrade -r ../tools/requirements.txt
+../venv/bin/python ../tools/automate.py --prebuilt-cef
 ```
 
-6) Download Linux binaries and libraries from
-   [GH releases](https://github.com/cztomczak/cefpython/tags)
-   tagged e.g. 'v57-upstream' when building v57. The version
-   of the binaries must match exactly the CEF version from
-   the "cefpython/src/version/cef_version_linux.h" file
-   (the CEF_VERSION constant).
+5) Build cefpython, install the wheel into the venv and run unit
+   tests (xx.x is version number, eg. 154.0). Remove `--unittests`
+   to also run examples.
 
-7) Extract the archive in the "build/" directory.
+```
+../venv/bin/python ../tools/build.py xx.x --unittests
+```
 
-8) Build cefpython and run examples (xx.x is version number):
-```
-python ../tools/build.py xx.x
-```
+The first run always fails once and build.py restarts itself.
+This is expected: the C++ code needs the cefpython API header
+that is generated by Cython. Pass `--clean` to rebuild all C++
+objects, eg. after updating CEF or switching Python version.
 
 
 ## Requirements
@@ -157,65 +121,25 @@ requirements common for all platforms.
 
 ### Windows
 
-* Download [ninja](https://github.com/ninja-build/ninja) 1.7.2 or later
-  and add it to PATH.
-* Download [cmake](https://cmake.org/download/) and add it to PATH.
-* Install an appropriate MS compiler for a specific Python version:
-  https://wiki.python.org/moin/WindowsCompilers
-    * For Python 2.7 install "Microsoft Visual C++ Compiler for Python 2.7"
-      from [here](https://www.microsoft.com/en-us/download/details.aspx?id=44266)
-    * When using "Visual C++ compiler for Python 2.7" you have to install
-      "Microsoft Visual C++ 2008 Redistributable Package" from
-      [here](https://www.microsoft.com/en-us/download/details.aspx?id=29) and
-      [here](https://www.microsoft.com/en-us/download/details.aspx?id=15336)
-    * For Python 2.7 copy "cefpython/src/windows/py27/stdint.h" to
-      "%LocalAppData%\Programs\Common\Microsoft\Visual C++ for Python\9.0\VC\include\"
-      if does not exist
-    * For Python 3.4 follow the instructions for installing Windows SDK 7.1.
-      If you encounter issue with .NET Framework 4 then make registry edits
-      as suggested here: [Windows SDK setup failure](http://stackoverflow.com/a/33260090/623622).
-    * For Python 3.4, if getting error:
-      `Cannot open include file 'ammintrin.h': No such file or directory`
-      then Copy that `ammitrin.h` file from for example VS 2015 installation
-      directory or find this file on the web. This is a Microsoft issue.
-* To build CEF from sources:
-    * Use Win7 x64 or later. 32-bit OS'es are not supported. For more details
-     see [here](https://www.chromium.org/developers/how-tos/build-instructions-windows).
-    * For CEF branch >= 2704 install VS2015 Update 2 or later. Use the
-      Custom Install option, see details [here](https://chromium.googlesource.com/chromium/src/+/master/docs/windows_build_instructions.md#Open-source-contributors).
-    * Install [CMake](https://cmake.org/) 2.8.12.1 or newer and add cmake.exe
-        to PATH
-    * Install [ninja](http://martine.github.io/ninja/) and add ninja.exe
-        to PATH
-    * You need about 16 GB of RAM during linking. If there is an error
-        just add additional virtual memory.
+* Python 3.12+ from python.org
+* Visual Studio 2022 with the "Desktop development with C++"
+  workload. CEF Python code is compiled as C++20.
+* Download [ninja](https://github.com/ninja-build/ninja) and
+  [cmake](https://cmake.org/download/) and add them to PATH.
+* To build CEF from sources see the upstream
+  [CEF](https://bitbucket.org/chromiumembedded/cef/wiki/MasterBuildQuickStart.md)
+  and [Chromium](https://chromium.googlesource.com/chromium/src/+/main/docs/windows_build_instructions.md)
+  build instructions.
 
 
 ### Linux
 
-* Install packages: `sudo apt-get install cmake g++ libgtk2.0-dev libgtkglext1-dev`
-* If building CEF from sources:
-    * Official binaries are built on Ubuntu 14.04 (cmake 2.8.12, g++ 4.8.4) and these instructions apply to that OS
-    * For Fedora build dependencies see [Issue #466](https://github.com/cztomczak/cefpython/issues/466#issuecomment-419794341)
-    * Download [ninja](https://github.com/ninja-build/ninja/releases) 1.7.1 or later
-      and copy it to /usr/bin and chmod 755.
-    * Install/upgrade required packages using one of the four methods below
-      (these packages should be upgraded each time you update to newer CEF):
-        1. For 64-bit build, type this command: `sudo apt-get install bison build-essential cdbs curl devscripts dpkg-dev elfutils fakeroot flex g++ git-core git-svn gperf libapache2-mod-php5 libasound2-dev libav-tools libbrlapi-dev libbz2-dev libcairo2-dev libcap-dev libcups2-dev libcurl4-gnutls-dev libdrm-dev libelf-dev libexif-dev libffi-dev libgconf2-dev libgconf-2-4 libgl1-mesa-dev libglib2.0-dev libglu1-mesa-dev libgnome-keyring-dev libgtk2.0-dev libkrb5-dev libnspr4-dev libnss3-dev libpam0g-dev libpci-dev libpulse-dev libsctp-dev libspeechd-dev libsqlite3-dev libssl-dev libudev-dev libwww-perl libxslt1-dev libxss-dev libxt-dev libxtst-dev mesa-common-dev openbox patch perl php5-cgi pkg-config python python-cherrypy3 python-crypto python-dev python-psutil python-numpy python-opencv python-openssl python-yaml rpm ruby subversion ttf-dejavu-core ttf-indic-fonts ttf-kochi-gothic ttf-kochi-mincho fonts-thai-tlwg wdiff wget zip`
-        2. For 32-bit build, type this command: `bison build-essential cdbs curl devscripts dpkg-dev elfutils fakeroot flex g++ git-core git-svn gperf libapache2-mod-php5 libasound2-dev libav-tools libbrlapi-dev libbz2-dev libcairo2-dev libcap-dev libcups2-dev libcurl4-gnutls-dev libdrm-dev libelf-dev libexif-dev libffi-dev libgconf2-dev libgl1-mesa-dev libglib2.0-dev libglu1-mesa-dev libgnome-keyring-dev libgtk2.0-dev libkrb5-dev libnspr4-dev libnss3-dev libpam0g-dev libpci-dev libpulse-dev libsctp-dev libspeechd-dev libsqlite3-dev libssl-dev libudev-dev libwww-perl libxslt1-dev libxss-dev libxt-dev libxtst-dev mesa-common-dev openbox patch perl php5-cgi pkg-config python python-cherrypy3 python-crypto python-dev python-psutil python-numpy python-opencv python-openssl python-yaml rpm ruby subversion ttf-dejavu-core ttf-indic-fonts ttf-kochi-gothic ttf-kochi-mincho fonts-thai-tlwg wdiff wget zip lib32gcc1 lib32stdc++6 libc6-i386 linux-libc-dev:i386 libasound2:i386 libcap2:i386 libelf-dev:i386 libfontconfig1:i386 libgconf-2-4:i386 libglib2.0-0:i386 libgpm2:i386 libgtk2.0-0:i386 libgtk-3-0:i386 libncurses5:i386 libnss3:i386 libpango1.0-0:i386 libssl1.0.0:i386 libtinfo-dev:i386 libxcomposite1:i386 libxcursor1:i386 libxdamage1:i386 libxi6:i386 libxrandr2:i386 libxss1:i386 libxtst6:i386`
-        3. See the list of packages on the
-           [cef/AutomatedBuildSetup.md](https://bitbucket.org/chromiumembedded/cef/wiki/AutomatedBuildSetup.md#markdown-header-linux-configuration)
-            wiki page.
-        4. Run the install-build-deps.sh script -
-           instructions provided further down on this page.
-    * To build on Debian 7 see
-      [cef/BuildingOnDebian7.md](https://bitbucket.org/chromiumembedded/cef/wiki/BuildingOnDebian7.md) and
-      [cef/#1575](https://bitbucket.org/chromiumembedded/cef/issues/1575),
-      and [cef/#1697](https://bitbucket.org/chromiumembedded/cef/issues/1697)
-* Building CEF 32-bit is only possible using cross-compiling on
-  64-bit machine. See [Issue #328](https://github.com/cztomczak/cefpython/issues/328).
-* Sometimes it is also required to install these packages (eg. chroot):
-  `sudo apt-get install libnss3 libnspr4 libxss1 libgconf-2-4`
+* Install packages: `sudo apt install cmake ninja-build g++ pkg-config libgtk-3-dev python3-dev python3-venv`
+* CEF Python code is compiled as C++20 with GCC 12+ (tested with GCC 13)
+* To build CEF from sources see the upstream
+  [CEF](https://bitbucket.org/chromiumembedded/cef/wiki/MasterBuildQuickStart.md)
+  and [Chromium](https://chromium.googlesource.com/chromium/src/+/main/docs/linux/build_instructions.md)
+  build instructions. Only 64-bit builds are supported.
 
 
 ### Mac
@@ -459,16 +383,16 @@ python ../tools/make_installer.py xx.x
 To create a wheel package type:
 ```
 cd cefpython/build/
-python ../tools/make_installer.py xx.xx --wheel --universal
+python ../tools/make_installer.py xx.xx --wheel --python-tag py3
 cd cefpython3_*/dist/
 ls
 ```
 
 Additional flags when using --wheel flag:
-* `--python-tag cp27` to generate Python 2.7 only package
-* `--universal` to build package for multiple Python versions
-  (in such case you must first build multiple cefpython modules
-   for each Python version)
+* `--python-tag cp312` to generate a package for Python 3.12 only
+* `--python-tag py3` for a package that includes cefpython modules
+  for multiple Python versions (in such case you must first build
+  the cefpython module with each Python version)
 
 CEF Python binaries are build using similar configuration as described
 on the ["Automated Build Setup"](https://bitbucket.org/chromiumembedded/cef/wiki/AutomatedBuildSetup.md#markdown-header-platform-build-configurations) wiki page in upstream CEF. The automate.py tool incorporates most of
