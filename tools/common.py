@@ -78,7 +78,8 @@ CEF_POSTFIX2_ARCH = dict(
 )
 PYPI_POSTFIX2_ARCH = dict(
     WINDOWS={"32bit": "win32", "64bit": "win_amd64"},
-    LINUX={"32bit": "manylinux1_i686", "64bit": "manylinux1_x86_64"},
+    # The manylinux_X_Y prefix depends on glibc version, see setup.py
+    LINUX={"32bit": "i686", "64bit": "x86_64"},
     MAC={"64bit": "x86_64"},
 )
 

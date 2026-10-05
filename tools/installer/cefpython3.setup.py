@@ -23,6 +23,7 @@ Options:
 import copy
 import os
 import platform
+import re
 import subprocess
 import sys
 import sysconfig
@@ -60,7 +61,29 @@ cmdclass = {"install": custom_install}
 # Fix platform tag in wheel package
 if "bdist_wheel" in sys.argv:
     print("[setup.py] Overload bdist_wheel command to fix platform tag")
-    from wheel.bdist_wheel import bdist_wheel
+    try:
+        # setuptools v70.1+
+        from setuptools.command.bdist_wheel import bdist_wheel
+    except ImportError:
+        from wheel.bdist_wheel import bdist_wheel
+
+    def get_manylinux_glibc_version():
+        """Return the highest GLIBC symbol version (major, minor)
+        required by the binaries in the package directory."""
+        package_dir = os.path.join(os.path.dirname(os.path.abspath(
+                __file__)), "cefpython3")
+        version = (2, 17)
+        for root, _, files in os.walk(package_dir):
+            for name in files:
+                path = os.path.join(root, name)
+                with open(path, "rb") as fp:
+                    if fp.read(4) != b"\x7fELF":
+                        continue
+                    data = fp.read()
+                for match in re.finditer(rb"GLIBC_(\d+)\.(\d+)", data):
+                    version = max(version, (int(match.group(1)),
+                                            int(match.group(2))))
+        return version
 
     class custom_bdist_wheel(bdist_wheel):
         def get_tag(self):
@@ -69,8 +92,11 @@ if "bdist_wheel" in sys.argv:
             platform_tag = platform_tag.replace("-", "_")
             if platform.system() == "Linux":
                 assert "linux" in platform_tag
-                # "linux-x86_64" replace with "manylinux1_x86_64"
-                platform_tag = platform_tag.replace("linux", "manylinux1")
+                # "linux_x86_64" replace with eg. "manylinux_2_34_x86_64"
+                # depending on the glibc version used to build binaries.
+                glibc = get_manylinux_glibc_version()
+                platform_tag = platform_tag.replace(
+                        "linux", "manylinux_{0}_{1}".format(*glibc))
             elif platform.system() == "Darwin":
                 # For explanation of Mac platform tags, see:
                 # http://lepture.com/en/2014/python-on-a-hard-wheel
