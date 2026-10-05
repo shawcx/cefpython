@@ -15,7 +15,8 @@ TODO: Linux/Mac support, see makefiles, add include dirs using
       refactor macros.
 """
 
-# import setuptools so that distutils msvc compiler is patched
+# distutils was removed from the stdlib in Python 3.12. Importing
+# setuptools first makes "distutils" resolve to its bundled copy.
 # noinspection PyUnresolvedReferences
 import setuptools
 from distutils.ccompiler import new_compiler
@@ -47,9 +48,11 @@ subprocess_MACROS = MACROS + [
 # Compiler args
 COMPILER_ARGS = [
     "/EHsc",
+    "/std:c++17",
 ]
 subprocess_COMPILER_ARGS = [
     "/MT",
+    "/std:c++17",
 ]
 
 # Linker args
@@ -108,8 +111,6 @@ def print_compiler_options():
 
 
 def get_compiler(static=False):
-    # NOTES:
-    # - VS2008 and VS2010 are both using distutils/msvc9compiler.py
     compiler = new_compiler()
     # Must initialize so that "compile_options" and others are available
     compiler.initialize()
@@ -160,7 +161,7 @@ def build_cefpython_app_library():
 
 
 def build_subprocess_executable():
-    print("[buil_cpp_projects.py] Build executable: subprocess")
+    print("[build_cpp_projects.py] Build executable: subprocess")
     compiler = get_compiler(static=True)
     sources = get_sources(SUBPROCESS_DIR,
                           exclude_names=["print_handler_gtk.cpp"])

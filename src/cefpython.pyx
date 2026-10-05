@@ -137,35 +137,19 @@ import struct
 # noinspection PyUnresolvedReferences
 import base64
 
-# Must use compile-time condition instead of checking sys.version_info.major
-# otherwise results in "ImportError: cannot import name urlencode" strange
-# error in Python 3.6.
-IF PY_MAJOR_VERSION == 2:
-    # noinspection PyUnresolvedReferences
-    import urlparse
-    # noinspection PyUnresolvedReferences
-    from urllib import urlencode as urllib_urlencode
-    from urllib import quote as urlparse_quote
-ELSE:
-    # noinspection PyUnresolvedReferences
-    from urllib import parse as urlparse
-    from urllib.parse import quote as urlparse_quote
-    # noinspection PyUnresolvedReferences
-    from urllib.parse import urlencode as urllib_urlencode
-
 # noinspection PyUnresolvedReferences
-from cpython.version cimport PY_MAJOR_VERSION
+from urllib import parse as urlparse
+from urllib.parse import quote as urlparse_quote
+# noinspection PyUnresolvedReferences
+from urllib.parse import urlencode as urllib_urlencode
+
 # noinspection PyUnresolvedReferences
 import weakref
 
-# We should allow multiple string types: str, unicode, bytes.
-# PyToCefString() can handle them all.
-# Important:
-#   If you set it to basestring, Cython will accept exactly(!)
-#   str/unicode in Py2 and str in Py3. This won't work in Py3
-#   as we might want to pass bytes as well. Also it will
-#   reject string subtypes, so using it in publi API functions
-#   would be a bad idea.
+# We should allow multiple string types: str and bytes.
+# PyToCefString() can handle them all. Typing it as "str"
+# would reject bytes and string subtypes, so it would be
+# a bad idea in public API functions.
 ctypedef object py_string
 
 # You can't use "void" along with cpdef function returning None, it is
@@ -192,6 +176,8 @@ from libcpp.vector cimport vector as cpp_vector
 from libcpp.string cimport string as cpp_string
 # noinspection PyUnresolvedReferences
 from wstring cimport wstring as cpp_wstring
+# noinspection PyUnresolvedReferences
+from libcpp.memory cimport unique_ptr
 # noinspection PyUnresolvedReferences
 from libc.string cimport strlen
 # noinspection PyUnresolvedReferences
@@ -250,15 +236,11 @@ from cef_types cimport (
     CefSettings, CefBrowserSettings, CefRect, CefSize, CefPoint,
     CefKeyEvent, CefMouseEvent, CefScreenInfo,
     PathKey, PK_DIR_EXE, PK_DIR_MODULE,
-    int32, uint32, int64, uint64,
     cef_log_severity_t,
 )
 
 # noinspection PyUnresolvedReferences
 from cef_ptr cimport CefRefPtr
-
-# noinspection PyUnresolvedReferences
-from cef_scoped_ptr cimport scoped_ptr
 
 from cef_task cimport *
 from cef_platform cimport *
@@ -273,7 +255,6 @@ from cef_time cimport *
 from cef_values cimport *
 from cefpython_app cimport *
 from cef_process_message cimport *
-from cef_web_plugin cimport *
 from cef_request_handler cimport *
 from cef_request cimport *
 from cef_cookie cimport *
@@ -321,7 +302,7 @@ g_browser_settings = {}
 # noinspection PyUnresolvedReferences
 cdef CefRefPtr[CefRequestContext] g_shared_request_context
 
-cdef scoped_ptr[MainMessageLoopExternalPump] g_external_message_pump
+cdef unique_ptr[MainMessageLoopExternalPump] g_external_message_pump
 
 cdef py_bool g_MessageLoop_called = False
 cdef py_bool g_MessageLoopWork_called = False
@@ -358,7 +339,6 @@ include "window_info.pyx"
 include "process_message_utils.pyx"
 include "javascript_callback.pyx"
 include "python_callback.pyx"
-include "web_plugin_info.pyx"
 include "request.pyx"
 include "cookie.pyx"
 include "string_visitor.pyx"
@@ -376,6 +356,7 @@ include "image.pyx"
 # Handlers
 include "handlers/accessibility_handler.pyx"
 include "handlers/browser_process_handler.pyx"
+include "handlers/cookie_access_filter.pyx"
 include "handlers/display_handler.pyx"
 include "handlers/focus_handler.pyx"
 include "handlers/javascript_dialog_handler.pyx"
@@ -471,17 +452,6 @@ def Initialize(applicationSettings=None, commandLineSwitches=None, **kwargs):
     # command line switches inside this function.
     del command_line_switches
     del commandLineSwitches
-
-    IF UNAME_SYSNAME == "Linux":
-        # Fix Issue #231 - Discovery of the "icudtl.dat" file fails on Linux.
-        cdef str py_module_dir = GetModuleDirectory()
-        cdef CefString cef_module_dir
-        PyToCefString(py_module_dir, cef_module_dir)
-        CefOverridePath(PK_DIR_EXE, cef_module_dir)\
-                or Debug("ERROR: CefOverridePath failed")
-        CefOverridePath(PK_DIR_MODULE, cef_module_dir)\
-                or Debug("ERROR: CefOverridePath failed")
-    # END IF UNAME_SYSNAME == "Linux":
 
     if not application_settings:
         application_settings = {}
@@ -581,8 +551,6 @@ def Initialize(applicationSettings=None, commandLineSwitches=None, **kwargs):
     # ------------------------------------------------------------------------
     if not "multi_threaded_message_loop" in application_settings:
         application_settings["multi_threaded_message_loop"] = False
-    if not "single_process" in application_settings:
-        application_settings["single_process"] = False
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
@@ -593,6 +561,11 @@ def Initialize(applicationSettings=None, commandLineSwitches=None, **kwargs):
     if not application_settings["cache_path"]:
         g_commandLineSwitches["disable-gpu-shader-disk-cache"] = ""
 
+    # Since Chromium 128 the popup blocker also applies to Alloy style
+    # browsers and blocks window.open() calls without user gesture.
+    # Keep allowing popups like in previous CEF Python versions.
+    if "disable-popup-blocking" not in g_commandLineSwitches:
+        g_commandLineSwitches["disable-popup-blocking"] = ""
 
     cdef CefRefPtr[CefApp] cefApp = <CefRefPtr[CefApp]?>new CefPythonApp()
 
@@ -625,10 +598,10 @@ def Initialize(applicationSettings=None, commandLineSwitches=None, **kwargs):
     if GetAppSetting("external_message_pump")\
             and not g_external_message_pump.get():
         Debug("Create external message pump")
+        global g_external_message_pump
         # Using .reset() here to assign new instance was causing
         # MainMessageLoopExternalPump destructor to be called. Strange.
-        g_external_message_pump.Assign(
-                MainMessageLoopExternalPump.Create())
+        g_external_message_pump = MainMessageLoopExternalPump.Create()
 
     Debug("CefInitialize()")
     cdef cpp_bool ret
@@ -655,6 +628,7 @@ def CreateBrowserSync(windowInfo=None,
                       browserSettings=None,
                       navigateUrl="",
                       window_title="",
+                      JavascriptBindings javascript_bindings=None,
                       **kwargs):
     # Alternative names for existing parameters
     if "window_info" in kwargs:
@@ -761,14 +735,25 @@ def CreateBrowserSync(windowInfo=None,
     else:
         cefRequestContext.Assign(g_shared_request_context.get())
 
+    # Javascript bindings are passed to the Renderer process along
+    # with browser creation, so that they are available to page
+    # scripts from the start.
+    cdef CefRefPtr[CefDictionaryValue] extra_info
+    if javascript_bindings is not None:
+        extra_info = CefDictionaryValue_Create()
+        extra_info.get().SetDictionary(
+                PyToCefStringValue("javascript_bindings"),
+                PyDictToCefDictionaryValue(
+                        0, "", javascript_bindings.GetRendererData()))
+
     # CEF browser creation.
     with nogil:
         cefBrowser = cef_browser_static.CreateBrowserSync(
                 cefWindowInfo, <CefRefPtr[CefClient]?>clientHandler,
-                cefNavigateUrl, cefBrowserSettings,
+                cefNavigateUrl, cefBrowserSettings, extra_info,
                 cefRequestContext)
 
-    if <void*>cefBrowser == NULL or not cefBrowser.get():
+    if not cefBrowser or not cefBrowser.get():
         Debug("CefBrowser::CreateBrowserSync() failed")
         return None
     else:
@@ -796,6 +781,9 @@ def CreateBrowserSync(windowInfo=None,
     cdef PyBrowser pyBrowser = GetPyBrowser(cefBrowser)
     pyBrowser.SetUserData("__outerWindowHandle",
                           int(windowInfo.parentWindowHandle))
+    if javascript_bindings is not None:
+        # Already sent to the Renderer process, no need to Rebind().
+        pyBrowser.javascriptBindings = javascript_bindings
 
     """
     if cef_window.get():
@@ -961,9 +949,11 @@ def Shutdown():
         MacShutdown()
 
 def SetOsModalLoop(py_bool modalLoop):
-    cdef cpp_bool cefModalLoop = bool(modalLoop)
-    with nogil:
-        CefSetOSModalLoop(cefModalLoop)
+    # Windows only. No-op on other platforms.
+    IF UNAME_SYSNAME == "Windows":
+        cdef cpp_bool cefModalLoop = bool(modalLoop)
+        with nogil:
+            CefSetOSModalLoop(cefModalLoop)
 
 cpdef py_void SetGlobalClientCallback(py_string name, object callback):
     global g_globalClientCallbacks
@@ -971,7 +961,7 @@ cpdef py_void SetGlobalClientCallback(py_string name, object callback):
     # Accept both with and without a prefix.
     if name.startswith("_"):
         name = name[1:]
-    if name in ["OnCertificateError", "OnBeforePluginLoad", "OnAfterCreated",
+    if name in ["OnCertificateError", "OnAfterCreated",
                 "OnAccessibilityTreeChange", "OnAccessibilityLocationChange"]:
         g_globalClientCallbacks[name] = callback
     else:
@@ -1023,8 +1013,7 @@ cpdef LoadCrlSetsFile(py_string path):
     CefLoadCRLSetsFile(PyToCefStringValue(path))
 
 cpdef GetDataUrl(data, mediatype="html"):
-    if PY_MAJOR_VERSION >= 3:
-        data = data.encode("utf-8", "replace")
+    data = data.encode("utf-8", "replace")
     b64 = base64.b64encode(data).decode("utf-8", "replace")
     ret = "data:text/html;base64,{data}".format(data=b64)
     return ret

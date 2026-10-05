@@ -149,7 +149,7 @@ class OsrTest_IsolatedTest(unittest.TestCase):
             browser.SetClientHandler(handler)
 
         # Initiate OSR rendering
-        browser.SendFocusEvent(True)
+        browser.SetFocus(True)
         browser.WasResized()
 
         # Test selection
@@ -194,28 +194,32 @@ class AccessibilityHandler(object):
         self._OnAccessibilityTreeChange_True = False
         self._OnAccessibilityLocationChange_True = False
         self.loadComplete_True = False
-        self.layoutComplete_True = False
 
     def _OnAccessibilityTreeChange(self, value):
         self._OnAccessibilityTreeChange_True = True
-        for event in value:
+        for event in value.get('events', []):
             if "event_type" in event:
                 if event["event_type"] == "loadComplete":
                     # LoadHandler.OnLoadEnd is called after this event
                     self.test_case.assertFalse(self.loadComplete_True)
                     self.loadComplete_True = True
-                elif event["event_type"] == "layoutComplete":
-                    # layoutComplete event occurs twice, one when a blank
-                    # page is loaded and second time when loading datauri.
-                    if self.loadComplete_True:
-                        self.test_case.assertFalse(self.layoutComplete_True)
-                        self.layoutComplete_True = True
+                    # Test accessibility location changes. Chromium 128
+                    # no longer sends "layoutComplete" events.
+                    move_page_content(
+                            cef.GetBrowserByIdentifier(MAIN_BROWSER_ID))
 
     def _OnAccessibilityLocationChange(self, **_):
         self._OnAccessibilityLocationChange_True = True
 
 
 def select_h1_text(browser):
+    # Since Chromium 154 input events sent right when loading ends
+    # may be dropped, as the page is not yet ready to handle input.
+    cef.PostDelayedTask(cef.TID_UI, 500, send_select_h1_events, browser)
+    subtest_message("select_h1_text() ok")
+
+
+def send_select_h1_events(browser):
     browser.SendMouseClickEvent(0, 0, cef.MOUSEBUTTON_LEFT,
                                 mouseUp=False, clickCount=1)
     browser.SendMouseMoveEvent(400, 20, mouseLeave=False,
@@ -223,7 +227,17 @@ def select_h1_text(browser):
     browser.SendMouseClickEvent(400, 20, cef.MOUSEBUTTON_LEFT,
                                 mouseUp=True, clickCount=1)
     browser.Invalidate(cef.PET_VIEW)
-    subtest_message("select_h1_text() ok")
+
+
+def move_page_content(browser):
+    """Since Chromium 123 location changes are sent only when
+    something moves after the accessibility tree was created."""
+    # Move only the last element, so that the h1 text selected
+    # by select_h1_text() stays in place.
+    browser.ExecuteJavascript("document.getElementById("
+                              "'OnTextSelectionChanged')"
+                              ".style.marginTop = '80px';")
+    subtest_message("move_page_content() ok")
 
 
 class RenderHandler(object):

@@ -6,14 +6,13 @@
 Create setup.py package installer.
 
 Usage:
-    make_installer.py VERSION [--wheel] [--python-tag xx] [--universal]
+    make_installer.py VERSION [--wheel] [--python-tag xx]
 
 Options:
     VERSION  Version number eg. 50.0
     --wheel  Generate wheel package.
              Additional args for the wheel package:
-             --python-tag xx (eg. cp27 - cpython 2.7)
-             --universal (any python 2 or 3)
+             --python-tag xx (eg. cp312 - cpython 3.12)
 """
 
 from common import *
@@ -112,7 +111,7 @@ def main():
         print("[make_installer.py] Create Wheel package")
         if not len(WHEEL_ARGS):
             print("[make_installer.py] ERROR: you must specify flags"
-                  " eg. --python-tag cp27 or --universal")
+                  " eg. --python-tag py3")
             sys.exit(1)
         command = ("\"{python}\" setup.py bdist_wheel {wheel_args}"
                    .format(python=sys.executable,
@@ -142,7 +141,7 @@ def command_line_args():
         if WHEEL:
             WHEEL_ARGS.append(arg)
     if WHEEL and not len(WHEEL_ARGS):
-        print("ERROR: wheel requires additional args eg. --universal")
+        print("ERROR: wheel requires additional args eg. --python-tag py3")
         sys.exit(1)
 
 
@@ -338,10 +337,8 @@ def create_empty_log_file(log_file):
 
 def copy_cpp_extension_dependencies_issue359(pkg_dir):
     """CEF Python module is written in Cython and is a Python C++
-    extension and depends on msvcpXX.dll. For Python 3.5 / 3.6 / 3.7 / 3.8 / 3.9
-    msvcp140.dll is required. See Issue #359. For Python 2.7
-    msvcp90.dll is required. Etc. These dependencies are not included
-    with Python binaries from Python.org."""
+    extension and depends on msvcp140.dll, see Issue #359. This
+    dependency is not included with Python binaries from Python.org."""
     if not WINDOWS:
         return
 
@@ -365,41 +362,12 @@ def copy_cpp_extension_dependencies_issue359(pkg_dir):
     # in the package. Thus if included, msvcpxx.dll dependency is
     # required as well.
 
-    # Python 3.5 / 3.6 / 3.7 / 3.8 / 3.9
-    if os.path.exists(os.path.join(pkg_dir, "cefpython_py35.pyd")) \
-            or os.path.exists(os.path.join(pkg_dir, "cefpython_py36.pyd")) \
-            or os.path.exists(os.path.join(pkg_dir, "cefpython_py37.pyd")) \
-            or os.path.exists(os.path.join(pkg_dir, "cefpython_py38.pyd")) \
-            or os.path.exists(os.path.join(pkg_dir, "cefpython_py39.pyd")):
+    if glob.glob(os.path.join(pkg_dir, "cefpython_py3*.pyd")):
         search_paths = [
             # This is where Microsoft Visual C++ 2015 Update 3 installs
             # (14.00.24212).
             os.path.join(system, "msvcp140.dll"),
         ]
-        root_search_paths.append(search_paths)
-
-    # Python 3.4
-    if os.path.exists(os.path.join(pkg_dir, "cefpython_py34.pyd")):
-        search_paths = [
-            # 10.00.40219.325 installs here on my system.
-            os.path.join(system, "msvcp100.dll"),
-        ]
-        root_search_paths.append(search_paths)
-
-    # Python 2.7
-    if os.path.exists(os.path.join(pkg_dir, "cefpython_py27.pyd")):
-        if ARCH32:
-            search_paths = [
-                # This runtime version is shipped with Python 2.7.14
-                r"c:\Windows\winsxs\x86_microsoft.vc90.crt_1fc8b3b9a1e18e3b"
-                r"_9.0.30729.1_none_e163563597edeada\msvcp90.dll",
-            ]
-        else:
-            search_paths = [
-                # This runtime version is shipped with Python 2.7.14
-                r"c:\Windows\winsxs\amd64_microsoft.vc90.crt_1fc8b3b9a1e18e3b"
-                r"_9.0.30729.1_none_99b61f5e8371c1d4\msvcp90.dll",
-            ]
         root_search_paths.append(search_paths)
 
     assert len(root_search_paths)

@@ -19,8 +19,9 @@ cdef void SetCefWindowInfo(
             pass
 
     IF UNAME_SYSNAME == "Windows":
-        cdef RECT windowRect
+        cdef CefRect windowRect
         cdef CefString windowName
+        cdef RECT rect
     ELIF UNAME_SYSNAME == "Linux":
         cdef CefRect windowRect
 
@@ -28,13 +29,14 @@ cdef void SetCefWindowInfo(
     if windowInfo.windowType == "child":
         IF UNAME_SYSNAME == "Windows":
             if windowInfo.windowRect:
-                windowRect.left = int(windowInfo.windowRect[0])
-                windowRect.top = int(windowInfo.windowRect[1])
-                windowRect.right = int(windowInfo.windowRect[2])
-                windowRect.bottom = int(windowInfo.windowRect[3])
+                rect.left = int(windowInfo.windowRect[0])
+                rect.top = int(windowInfo.windowRect[1])
+                rect.right = int(windowInfo.windowRect[2])
+                rect.bottom = int(windowInfo.windowRect[3])
             else:
                 GetClientRect(<CefWindowHandle>windowInfo.parentWindowHandle,
-                              &windowRect)
+                              &rect)
+            windowRect = CefRect(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
             cefWindowInfo.SetAsChild(
                     <CefWindowHandle>windowInfo.parentWindowHandle,
                     windowRect)
@@ -50,10 +52,16 @@ cdef void SetCefWindowInfo(
             y = int(windowInfo.windowRect[1])
             width = int(windowInfo.windowRect[2] - windowInfo.windowRect[0])
             height = int(windowInfo.windowRect[3] - windowInfo.windowRect[1])
+            # When the parent window uses a non-default visual (GTK 3)
+            # the browser is embedded in a wrapper window, see x11.cpp.
+            parent = x11.GetX11BrowserParentWindow(
+                    <unsigned long>windowInfo.parentWindowHandle,
+                    x, y, width, height)
+            if parent != <unsigned long>windowInfo.parentWindowHandle:
+                x = 0
+                y = 0
             windowRect = CefRect(x, y, width, height)
-            cefWindowInfo.SetAsChild(
-                    <CefWindowHandle>windowInfo.parentWindowHandle,
-                    windowRect)
+            cefWindowInfo.SetAsChild(<CefWindowHandle>parent, windowRect)
 
     # POPUP WINDOW - Windows only
     IF UNAME_SYSNAME == "Windows":
@@ -66,6 +74,11 @@ cdef void SetCefWindowInfo(
     if windowInfo.windowType == "offscreen":
         cefWindowInfo.SetAsWindowless(
                 <CefWindowHandle>windowInfo.parentWindowHandle)
+
+    # Since CEF 128 browsers use Chrome runtime style by default, which
+    # does not support all client callbacks that CEF Python implements.
+    # Windowless rendering always uses Alloy style.
+    cefWindowInfo.runtime_style = cef_types.CEF_RUNTIME_STYLE_ALLOY
 
 cdef class WindowInfo:
     cdef public str windowType

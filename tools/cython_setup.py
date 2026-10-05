@@ -7,14 +7,8 @@ cython_setup.py is for internal use only - called by build.py.
 This is Cython's setup for building the cefpython module
 """
 
-# Use setuptools so that "Visual C++ compiler for Python 2.7" tools
-# can be used. Otherwise "Unable to find vcvarsall.bat" error occurs.
-try:
-    from setuptools import setup
-    from setuptools import Extension
-except ImportError:
-    from distutils.core import setup
-    from distutils.extension import Extension
+from setuptools import setup
+from setuptools import Extension
 
 # Use "Extension" from Cython.Distutils so that "cython_directives" works
 from Cython.Distutils import build_ext, Extension
@@ -27,22 +21,19 @@ import platform
 import Cython
 import copy
 import os
+import subprocess
 
 # Must monkey patch Cython's ModuleNode to inject custom C++ code
 # in the generated cefpython.cpp. This is a fix for an error on Mac:
 # > ImportError: dynamic module does not define init function
 # To get rid of CEF's undefined symbol error when importing module
 # it was required to pass "-fvisibility=hidden" and "-Wl,-dead_strip"
-# flags. However these flags cause the "initcefpython_py27" Python
+# flags. However these flags cause the "PyInit_cefpython_py312" Python
 # Module Initialization function to be hidden as well. To workaround
 # this it is required to add default visibility attribute to the
 # signature of that init function.
 #
-# Original definition in Python 2.7:
-# | https://github.com/python/cpython/blob/2.7/Include/pyport.h
-# > define PyMODINIT_FUNC extern "C" __declspec(dllexport) void
-#
-# Original definition in Python 3.4 / 3.5 / 3.6:
+# Original definition in Python 3:
 # > define PyMODINIT_FUNC extern "C" __declspec(dllexport) PyObject*
 
 if MAC:
@@ -55,12 +46,8 @@ if MAC:
         g_generate_extern_c_macro_definition_old(self, code)
         code.putln("// Added by: cefpython/tools/cython_setup.py")
         code.putln("#undef PyMODINIT_FUNC")
-        if sys.version_info[:2] == (2, 7):
-            code.putln("#define PyMODINIT_FUNC extern \"C\""
-                       " __attribute__((visibility(\"default\"))) void")
-        else:
-            code.putln("#define PyMODINIT_FUNC extern \"C\""
-                       " __attribute__((visibility(\"default\"))) PyObject*")
+        code.putln("#define PyMODINIT_FUNC extern \"C\""
+                   " __attribute__((visibility(\"default\"))) PyObject*")
     # Overwrite Cython function
     ModuleNode.generate_extern_c_macro_definition = (
             generate_extern_c_macro_definition)
@@ -145,17 +132,9 @@ def get_winsdk_lib():
     print("[cython_setup.py] Detect Windows SDK library directory")
     ret = ""
     if WINDOWS:
-        if ARCH32:
+        if ARCH32 or ARCH64:
             winsdk_libs = [
-                # Windows 7 SDKs.
-                r"C:\\Program Files\\Microsoft SDKs\\Windows\\v7.1\\Lib",
-                r"C:\\Program Files\\Microsoft SDKs\\Windows\\v7.0\\Lib",
-            ]
-        elif ARCH64:
-            winsdk_libs = [
-                # Windows 7 SDKs.
-                r"C:\\Program Files\\Microsoft SDKs\\Windows\\v7.1\\Lib\\x64",
-                r"C:\\Program Files\\Microsoft SDKs\\Windows\\v7.0\\Lib\\x64",
+                r"C:\Program Files (x86)\Microsoft SDKs\Windows Kits\10",
             ]
         else:
             raise Exception("Unknown architecture")
@@ -184,7 +163,7 @@ def set_compiler_options(options):
         #
         # /ignore:4217 - disable warnings such as this:
         #
-        #   client_handler_py27_32bit.lib(client_handler.obj): warning LNK4217:
+        #   client_handler_py312_32bit.lib(client_handler.obj): warning LNK4217:
         #   locally defined symbol _RemovePythonCallbacksForFrame imported in
         #   function "public: virtual bool __thiscall
         #   ClientHandler::OnProcessMessageReceived
@@ -200,7 +179,7 @@ def set_compiler_options(options):
         #
         # The above warning LNK4217 is caused by the warning below which occurs
         # when building the client_handler.lib static library:
-        extra_compile_args.extend(["/EHsc", "/wd4305"])
+        extra_compile_args.extend(["/EHsc", "/wd4305", "/std:c++20"])
         extra_link_args.extend(["/ignore:4217"])
 
     if LINUX or MAC:
@@ -212,13 +191,12 @@ def set_compiler_options(options):
 
         extra_compile_args.extend([
                 "-DNDEBUG",
-                "-std=gnu++11",
+                "-std=gnu++20",
         ])
 
     if LINUX:
         os.environ["CC"] = "g++"
         os.environ["CXX"] = "g++"
-        extra_compile_args.extend(["-std=gnu++11"])
 
         # Fix "ImportError ... undefined symbol ..." caused by CEF's
         # include/base/ headers by adding the -flto flag (Issue #230).
@@ -294,6 +272,20 @@ def set_compiler_options(options):
     options["extra_link_args"] = extra_link_args
 
 
+# GTK 3 and X11 packages used by the Linux C++ code. Must match
+# the pkg-config packages in src/*/Makefile.
+LINUX_PKG_CONFIG_PACKAGES = ["gtk+-3.0", "gtk+-unix-print-3.0", "x11"]
+
+
+def pkg_config(option, prefix):
+    """Run pkg-config for Linux packages and strip the flag prefix
+    eg. "-I" from each returned value."""
+    output = subprocess.check_output(
+            ["pkg-config", option] + LINUX_PKG_CONFIG_PACKAGES).decode()
+    return [flag[len(prefix):] for flag in output.split()
+            if flag.startswith(prefix)]
+
+
 def get_include_dirs():
     print("[cython_setup.py] Prepare include directories")
     include_dirs = list()
@@ -330,30 +322,7 @@ def get_include_dirs():
     elif LINUX:
         include_dirs.extend([LINUX_DIR])
         include_dirs.extend(common_include_dirs)
-        include_dirs.extend([
-            '/usr/include/gtk-2.0',
-            '/usr/include/glib-2.0',
-            '/usr/include/gtk-unix-print-2.0',
-            '/usr/include/cairo',
-            '/usr/include/pango-1.0',
-            '/usr/include/harfbuzz',
-            '/usr/include/gdk-pixbuf-2.0',
-            '/usr/include/atk-1.0',
-            # Ubuntu
-            '/usr/lib/x86_64-linux-gnu/gtk-2.0/include',
-            '/usr/lib/x86_64-linux-gnu/gtk-unix-print-2.0',
-            '/usr/lib/x86_64-linux-gnu/glib-2.0/include',
-            '/usr/lib/i386-linux-gnu/gtk-2.0/include',
-            '/usr/lib/i386-linux-gnu/gtk-unix-print-2.0',
-            '/usr/lib/i386-linux-gnu/glib-2.0/include',
-            # Fedora
-            '/usr/lib64/gtk-2.0/include',
-            '/usr/lib64/gtk-unix-print-2.0',
-            '/usr/lib64/glib-2.0/include',
-            '/usr/lib/gtk-2.0/include',
-            '/usr/lib/gtk-2.0/gtk-unix-print-2.0',
-            '/usr/lib/glib-2.0/include',
-        ])
+        include_dirs.extend(pkg_config("--cflags-only-I", "-I"))
     return include_dirs
 
 
@@ -404,14 +373,8 @@ def get_libraries():
             "cpp_utils",
         ])
     elif LINUX:
+        libraries.extend(pkg_config("--libs-only-l", "-l"))
         libraries.extend([
-            "X11",
-            "gobject-2.0",
-            "glib-2.0",
-            "gtk-x11-2.0",
-            "gdk-x11-2.0",
-            # "gdk_pixbuf-2.0",
-            # "gdk_pixbuf_xlib-2.0",
             # CEF and CEF Python libraries
             "cef_dll_wrapper",
             "cefpythonapp",
@@ -426,16 +389,15 @@ def get_ext_modules(options):
         name=MODULE_NAME_NOEXT,
         sources=["cefpython_py{pyver}.pyx".format(pyver=PYVERSION)],
 
-        # Ignore the warning in the console:
-        # > C:\Python27\lib\distutils\extension.py:133: UserWarning:
-        # > Unknown Extension options: 'cython_directives' warnings.warn(msg)
         cython_directives={
             # Any conversion to unicode must be explicit using .decode().
-            "language_level": 2,  # Yes, Py2 for all python versions.
+            "language_level": 3,
             "c_string_type": "bytes",
             "c_string_encoding": "utf-8",
             "profile": ENABLE_PROFILING,
             "linetrace": ENABLE_LINE_TRACING,
+            "show_performance_hints": False,  # default directive would produce 
+                                              # way too many warning
         },
 
         language="c++",
@@ -468,7 +430,6 @@ def compile_time_constants():
         contents = "# This file was generated by setup.py\n"
         # A way around Python 3.2 bug: UNAME_SYSNAME is not set
         contents += 'DEF UNAME_SYSNAME = "%s"\n' % platform.uname()[0]
-        contents += 'DEF PY_MAJOR_VERSION = %s\n' % sys.version_info.major
         contents += 'cdef extern from "limits.h":\n'
         contents += '    cdef int INT_MIN\n'
         contents += '    cdef int INT_MAX\n'

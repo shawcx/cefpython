@@ -5,7 +5,7 @@
 # To enable DPI awareness on Windows you have to either embed DPI aware manifest
 # in your executable created with pyinstaller or change python.exe properties manually:
 # Compatibility > High DPI scaling override > Application.
-# Setting DPI awareness programmatically via a call to cef.DpiAware.EnableHighDpiSupport
+# Setting DPI awareness programmatically via a call to cef.DpiAware.SetProcessDpiAware
 # is problematic in Python, may not work and can cause display glitches.
 
 from cefpython3 import cefpython as cef
@@ -31,7 +31,6 @@ def check_versions():
     print("[hello_world.py] Python {ver} {arch}".format(
            ver=platform.python_version(),
            arch=platform.architecture()[0]))
-    assert cef.__version__ >= "57.0", "CEF Python v57.0+ required to run this"
 
 
 if __name__ == '__main__':

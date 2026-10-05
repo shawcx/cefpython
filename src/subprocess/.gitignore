@@ -2,3 +2,4 @@
 *.a
 subprocess
 subprocess.dSYM/
+*.d

@@ -30,27 +30,10 @@ OBJ = $(filter %.o, $(SRC:.cpp=.o) $(SRC:.mm=.o))
 
 OUT = libcefpythonapp.a
 
-INC = -I./../ -I./../common/ -I$(PYTHON_INCLUDE) \
-	-I/usr/include/gtk-2.0 \
-	-I/usr/include/gtk-unix-print-2.0 \
-	-I/usr/include/glib-2.0 \
-	-I/usr/include/cairo \
-	-I/usr/include/pango-1.0 \
-	-I/usr/include/harfbuzz \
-	-I/usr/include/gdk-pixbuf-2.0 \
-	-I/usr/include/atk-1.0 \
-	-I/usr/lib/x86_64-linux-gnu/gtk-2.0/include \
-	-I/usr/lib/x86_64-linux-gnu/gtk-unix-print-2.0 \
-	-I/usr/lib/x86_64-linux-gnu/glib-2.0/include \
-	-I/usr/lib/i386-linux-gnu/gtk-2.0/include \
-	-I/usr/lib/i386-linux-gnu/gtk-unix-print-2.0 \
-	-I/usr/lib/i386-linux-gnu/glib-2.0/include \
-	-I/usr/lib64/gtk-2.0/include \
-	-I/usr/lib64/gtk-unix-print-2.0 \
-	-I/usr/lib64/glib-2.0/include \
-	-I/usr/lib/gtk-2.0/include \
-	-I/usr/lib/gtk-2.0/gtk-unix-print-2.0 \
-	-I/usr/lib/glib-2.0/include
+INC = -I./../ -I./../common/ -I$(PYTHON_INCLUDE)
+ifeq ($(UNAME_S), Linux)
+	INC += $(shell pkg-config --cflags gtk+-3.0 gtk+-unix-print-3.0 x11)
+endif
 
 $(OUT): $(OBJ)
 	@echo [CEFPYTHONAPP] Creating library $(OUT) from $(OBJ)...
@@ -58,8 +41,11 @@ $(OUT): $(OBJ)
 
 .cpp.o:
 	@echo [CEFPYTHONAPP] Building $@ from $<...
-	$(CXX) $(CCFLAGS) $(INC) -c $< -o $@
+	$(CXX) $(CCFLAGS) $(INC) -c $< -o $@ -MMD -MP
 
 .mm.o:
 	@echo [CEFPYTHONAPP] Building $@ from $<...
-	$(CXX) $(CCFLAGS) $(INC) -c $< -o $@
+	$(CXX) $(CCFLAGS) $(INC) -c $< -o $@ -MMD -MP
+
+# Rebuild objects when included headers change
+-include $(OBJ:.o=.d)

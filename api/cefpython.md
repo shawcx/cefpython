@@ -53,6 +53,7 @@ of code.
 | [settings](BrowserSettings.md) | [BrowserSettings](BrowserSettings.md) |
 | url | string |
 | window_title | string |
+| javascript_bindings | [JavascriptBindings](JavascriptBindings.md) |
 | __Return__ | [Browser](Browser.md) |
 
 All parameters are optional.
@@ -62,14 +63,19 @@ This function can only be called on the UI thread.
 If the url is a local path it needs to start with the `file://` prefix.
 If the url contains special characters it may need proper handling.
 Starting with v66.1+ it is required for the app code to encode the url
-properly. You can use the `pathlib.PurePath.as_uri` in Python 3
-or `urllib.pathname2url` in Python 2 (`urllib.request.pathname2url`
-in Python 3) depending on your case.
+properly. You can use `pathlib.PurePath.as_uri` or
+`urllib.request.pathname2url` depending on your case.
 
 The "window_title" parameter will be used only when parent
 window provided in window_info was set to 0. This is for use
 with hello_world.py and tutorial.py examples which don't use
 any third party GUI framework for creation of top-level window.
+
+The "javascript_bindings" parameter makes the bindings available
+to page scripts from the start, eg. in `window.onload`. Bindings
+set later with Browser.[SetJavascriptBindings](Browser.md#setjavascriptbindings)
+are sent to the renderer process asynchronously and may not yet
+be available when a fast-loading page runs its scripts.
 
 After the call to CreateBrowserSync() the page is not yet loaded,
 if you want your next lines of code to do some stuff on the

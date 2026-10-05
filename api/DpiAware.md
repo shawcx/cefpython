@@ -12,7 +12,6 @@ Table of contents:
 * [Introduction](#introduction)
 * [Static methods](#static-methods)
   * [CalculateWindowSize](#calculatewindowsize)
-  * [EnableHighDpiSupport](#enablehighdpisupport)
   * [GetSystemDpi](#getsystemdpi)
   * [IsProcessDpiAware](#isprocessdpiaware)
   * [SetProcessDpiAware](#setprocessdpiaware)
@@ -23,9 +22,9 @@ Table of contents:
 ## Introduction
 
 By default if DPI awareness is not enabled in application, then OS performs display scaling. That causes text to look blurry on high DPI displays. To resolve this you have to
- call `cef.DpiAware.EnableHighDpiSupport` method. High DPI support is available only on Windows.
+ call `cef.DpiAware.SetProcessDpiAware` method. High DPI support is available only on Windows.
 
-Enabling High DPI support in app can be done by embedding a DPI awareness xml manifest in both main executable and subprocess executable (see [Issue #112](../issues/112) comment #2), or by calling the `cef.DpiAware.EnableHighDpiSupport` method.
+Enabling High DPI support in app can be done by embedding a DPI awareness xml manifest in both main executable and subprocess executable (see [Issue #112](../issues/112) comment #2), or by calling the `cef.DpiAware.SetProcessDpiAware` method.
 
 ## Static methods
 
@@ -44,21 +43,6 @@ non standard DPI settings such as '132%' on Windows 10.
 This utility function will adjust width/height using
 OS DPI settings. For 800/600 with Win7 DPI settings
 being set to "Larger 150%" will return 1200/900.
-
-
-### EnableHighDpiSupport
-
-| | |
-| --- | --- |
-| __Return__ | void |
-
-Calling this function will set current process and subprocesses
-to be DPI aware.
-
-Description from upstream CEF:
-> Call during process startup to enable High-DPI support on Windows 7 or newer.
-> Older versions of Windows should be left DPI-unaware because they do not
-> support DirectWrite and GDI fonts are kerned very badly.
 
 
 ### GetSystemDpi
@@ -110,10 +94,6 @@ On Win8 this will return True if DPI awareness is set to either "System DPI awar
 | | |
 | --- | --- |
 | __Return__ | void |
-
-Calling this method is deprecated, call instead `EnableHighDpiSupport()`.
-See [Issue #358](../../../issues/358) for how the behavior changed in
-latest CEF. This method now internally calls `EnableHighDpiSupport()`.
 
 Enables DPI awareness for the running process. Embedding a DPI manifest in .exe is the prefered way, as it gives more reliable results, otherwise some display bugs may appear (discussed in the "Introduction" section on this page).
 

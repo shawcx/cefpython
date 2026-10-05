@@ -33,14 +33,12 @@ Table of contents:
 
 ## Install and run example
 
-You can install with pip. On Linux pip 8.1+ is required. Alternatively
-you can download packages for offline installation from [GitHub Releases](../../../releases).
-
-Run the commands below to install the cefpython3 package, clone
-the repository and run the Hello World example:
+CEF Python requires Python 3.12 or later. Packages for CEF 154
+are not yet published on PyPI, so build and install the wheel
+using the [Build instructions](Build-instructions.md). Then
+clone the repository and run the Hello World example:
 
 ```commandline
-pip install cefpython3==66.0
 git clone https://github.com/cztomczak/cefpython.git
 cd cefpython/examples/
 python hello_world.py
@@ -373,14 +371,25 @@ In [tutorial.py](../examples/tutorial.py) example you will find
 example usage of javascript bindings, javascript callbacks
 and python callbacks. Here is part of its source code:
 
+Pass the bindings to [CreateBrowserSync](../api/cefpython.md#createbrowsersync)
+using the "javascript_bindings" parameter, so that they are
+available to page scripts from the start, eg. in `window.onload`.
+Bindings set later with Browser.[SetJavascriptBindings](../api/Browser.md#setjavascriptbindings)
+are sent to the renderer process asynchronously and a fast-loading
+page may run its scripts before they are available.
+
 ```python
-set_javascript_bindings(browser)
+bindings = create_javascript_bindings(external)
+browser = cef.CreateBrowserSync(url=html_to_data_uri(HTML_code),
+                                window_title="Tutorial",
+                                javascript_bindings=bindings)
 ...
-def set_javascript_bindings(browser):
+def create_javascript_bindings(external):
     bindings = cef.JavascriptBindings(
             bindToFrames=False, bindToPopups=False)
     bindings.SetFunction("html_to_data_uri", html_to_data_uri)
-    browser.SetJavascriptBindings(bindings)
+    ...
+    return bindings
 ...
 def html_to_data_uri(html, js_callback=None):
     # This function is called in two ways:
@@ -612,8 +621,8 @@ In the OnPaint callback CEF provides a [PaintBufer](../api/PaintBuffer.md#paintb
 browser view. This object has [GetIntPointer](../api/PaintBuffer.md#getintpointer)
 and [GetString](../api/PaintBuffer.md#getstring) methods. In the
 example the latter method is used which returns bytes. The method
-name is a bit confusing for Python 3 users, but in Python 2 bytes
-were strings and thus the name. Here is the code:
+name dates back to Python 2, where bytes were strings. Here is
+the code:
 
 ```Python
 def OnPaint(self, browser, element_type, paint_buffer, **_):

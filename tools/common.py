@@ -12,6 +12,7 @@ import re
 import shutil
 import struct
 import sys
+import sysconfig
 import tempfile
 
 # These sample apps will be deleted when creating setup/wheel packages
@@ -77,11 +78,12 @@ CEF_POSTFIX2_ARCH = dict(
 )
 PYPI_POSTFIX2_ARCH = dict(
     WINDOWS={"32bit": "win32", "64bit": "win_amd64"},
-    LINUX={"32bit": "manylinux1_i686", "64bit": "manylinux1_x86_64"},
+    # The manylinux_X_Y prefix depends on glibc version, see setup.py
+    LINUX={"32bit": "i686", "64bit": "x86_64"},
     MAC={"64bit": "x86_64"},
 )
 
-# Python version eg. 27
+# Python version eg. 312
 PYVERSION = str(sys.version_info[0])+str(sys.version_info[1])
 
 # Module extension
@@ -219,25 +221,7 @@ SUBPROCESS_EXE = os.path.join(BUILD_SUBPROCESS,
 
 VS_PLATFORM_ARG = "x86" if ARCH32 else "amd64"
 
-# Python 3.5 / 3.6 / 3.7 / 3.8 / 3.9
-VS2015_VCVARS = ("C:\\Program Files (x86)\\Microsoft Visual Studio 14.0"
-                 "\\VC\\vcvarsall.bat")
-
-# Required for building old CEF branches < 2704
-VS2013_VCVARS = ("C:\\Program Files (x86)\\Microsoft Visual Studio 12.0"
-                 "\\VC\\vcvarsall.bat")
-
-# Python 3.4
-VS2010_VCVARS = ("C:\\Program Files (x86)\\Microsoft Visual Studio 10.0"
-                 "\\VC\\vcvarsall.bat")
-
-# Python 2.7
-VS2008_VCVARS = ("C:\\Program Files (x86)\\Microsoft Visual Studio 9.0"
-                 "\\VC\\vcvarsall.bat")
-
-if WINDOWS and not os.path.exists(VS2008_VCVARS):
-    VS2008_VCVARS = (os.environ["LOCALAPPDATA"]+"\\Programs\\Common\\Microsoft"
-                     "\\Visual C++ for Python\\9.0\\vcvarsall.bat")
+VS2015_VCVARS = (r"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat")
 
 # -----------------------------------------------------------------------------
 
@@ -268,12 +252,13 @@ def get_python_path():
 
 
 def get_python_include_path():
-    # 1) C:\Python27\include
-    # 2) ~/.pyenv/versions/2.7.13/bin/python
-    #    ~/.pyenv/versions/2.7.13/include/python2.7
-    # 3) ~/.pyenv/versions/3.4.6/include/python2.7m
-    # 4) /usr/include/python2.7
-    base_dir = os.path.dirname(sys.executable)
+    include_dir = sysconfig.get_paths()["include"]
+    if os.path.isfile(os.path.join(include_dir, "Python.h")):
+        return include_dir
+    # 1) C:\Python312\include
+    # 2) ~/.pyenv/versions/3.12.3/include/python3.12
+    # 3) /usr/include/python3.12
+    base_dir = sys.base_prefix
     try_dirs = ["{base_dir}/include",
                 "{base_dir}/../include/python{ver}",
                 "{base_dir}/../include/python{ver}*",
@@ -448,15 +433,45 @@ def get_version_from_command_line_args(caller_script, ignore_error=False):
 
 
 def get_cefpython_version():
-    """Get CEF version from the 'src/version/' directory."""
+    """Get CEF version from the 'src/version/' directory and API hashes
+    for the current platform from 'src/include/'."""
     header_file = os.path.join(SRC_DIR, "version",
                                "cef_version_"+OS_POSTFIX+".h")
-    return get_version_from_file(header_file)
+    ret = get_version_from_file(header_file)
+    ret.update(get_api_hash())
+    return ret
+
+
+def get_api_hash():
+    """Since CEF 133 API hashes are defined per API version in the
+    cef_api_versions.h file and there is no universal hash. CEF Python
+    does not set CEF_API_VERSION, so the experimental version is used."""
+    os_define = {"win": "OS_WIN", "mac": "OS_MAC",
+                 "linux": "OS_LINUX"}[OS_POSTFIX]
+    versions_file = os.path.join(SRC_DIR, "include", "cef_api_versions.h")
+    if os.path.exists(versions_file):
+        name = "CEF_API_HASH_999999"
+        header_file = versions_file
+    else:
+        name = "CEF_API_HASH_PLATFORM"
+        header_file = os.path.join(SRC_DIR, "include", "cef_api_hash.h")
+    with open(header_file, "r") as fp:
+        contents = fp.read()
+    universal = re.search(r'^#define CEF_API_HASH_UNIVERSAL "(\w+)"',
+                          contents, re.MULTILINE)
+    platform_hash = re.search(r'defined\({os_define}\)\n'
+                              r'#define {name} "(\w+)"'
+                              .format(os_define=os_define, name=name),
+                              contents)
+    assert platform_hash, "API hash not found: " + header_file
+    return dict(CEF_API_HASH_UNIVERSAL=universal.group(1) if universal
+                else "",
+                CEF_API_HASH_PLATFORM=platform_hash.group(1))
 
 
 def get_version_from_file(header_file):
-    with open(header_file, "rU") as fp:
-        contents = fp.read()  # no need to decode() as "rU" specified
+    with open(header_file, "r") as fp:
+        contents = fp.read()
     ret = dict()
     matches = re.findall(r'^#define (\w+) "?([^\s"]+)"?', contents,
                          re.MULTILINE)
@@ -467,23 +482,10 @@ def get_version_from_file(header_file):
 
 def get_msvs_for_python(vs_prefix=False):
     """Get MSVS version (eg 2008) for current python running."""
-    if sys.version_info[:2] == (2, 7):
-        return "VS2008" if vs_prefix else "2008"
-    elif sys.version_info[:2] == (3, 4):
-        return "VS2010" if vs_prefix else "2010"
-    elif sys.version_info[:2] == (3, 5):
+    if sys.version_info[:2] >= (3, 12):
         return "VS2015" if vs_prefix else "2015"
-    elif sys.version_info[:2] == (3, 6):
-        return "VS2015" if vs_prefix else "2015"
-    elif sys.version_info[:2] == (3, 7):
-        return "VS2015" if vs_prefix else "2015"
-    elif sys.version_info[:2] == (3, 8):
-        return "VS2015" if vs_prefix else "2015"
-    elif sys.version_info[:2] == (3, 9):
-        return "VS2015" if vs_prefix else "2015"
-    else:
-        print("ERROR: This version of Python is not supported")
-        sys.exit(1)
+    print("ERROR: This version of Python is not supported")
+    sys.exit(1)
 
 
 _detect_cef_binaries_libraries_dir()

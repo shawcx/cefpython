@@ -82,35 +82,37 @@ cdef class JavascriptBindings:
         else:
             self.properties[name] = value
 
+    cdef dict GetRendererData(self):
+        # Data sent to the Renderer process: functions, properties,
+        # objects and its methods, bindToFrames.
+        cdef dict functions = {}
+        cdef dict objects = {}
+        cdef dict methods
+        for funcName in self.functions:
+            functions[funcName] = None
+        for objectName in self.objects:
+            methods = {}
+            for methodName in self.objects[objectName]:
+                methods[methodName] = None
+            objects[objectName] = methods
+        return {
+            "functions": functions,
+            "properties": self.properties,
+            "objects": objects,
+            "bindToFrames": self.bindToFrames,
+        }
+
     cpdef py_void Rebind(self):
         # Rebind() is called for both first-time binding and rebinding.
         cdef PyBrowser pyBrowser
-        cdef dict functions
-        cdef dict properties
-        cdef dict objects
-        cdef dict methods
-        for browserId, pyBrowser in g_pyBrowsers.iteritems():
+        for browserId, pyBrowser in g_pyBrowsers.items():
             if pyBrowser.GetJavascriptBindings() != self:
                 continue
-            # Send to the Renderer process: functions, properties,
-            # objects and its methods, bindToFrames.
-            functions = {}
-            for funcName in self.functions:
-                functions[funcName] = None
-            properties = self.properties
-            objects = {}
-            for objectName in self.objects:
-                methods = {}
-                for methodName in self.objects[objectName]:
-                    methods[methodName] = None
-                objects[objectName] = methods
-            pyBrowser.SendProcessMessage(cef_types.PID_RENDERER,
-                    0, "DoJavascriptBindings", [{
-                            "functions": functions,
-                            "properties": properties,
-                            "objects": objects,
-                            "bindToFrames": self.bindToFrames
-                            }])
+            mainFrame = pyBrowser.GetMainFrame()
+            if mainFrame.IsValid():
+                mainFrame.SendProcessMessage(cef_types.PID_RENDERER,
+                    mainFrame.frameId, "DoJavascriptBindings",
+                    [self.GetRendererData()])
 
     cpdef dict GetProperties(self):
         return self.properties
@@ -140,8 +142,6 @@ cdef class JavascriptBindings:
             return True
         elif valueType == int:
             return True
-        elif valueType == long:
-            return True
         elif valueType == type(None):
             return True
         elif IsFunctionOrMethod(valueType):
@@ -156,9 +156,6 @@ cdef class JavascriptBindings:
                     return valueType2.__name__
             return True
         elif valueType == str or valueType == bytes:
-            return True
-        elif PY_MAJOR_VERSION < 3 and valueType == unicode:
-            # The unicode type is not defined in Python 3.
             return True
         elif valueType == tuple:
             return True

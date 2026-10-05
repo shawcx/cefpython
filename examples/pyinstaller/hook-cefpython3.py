@@ -16,11 +16,6 @@ import PyInstaller
 from PyInstaller.utils.hooks import is_module_satisfies, get_package_paths
 from PyInstaller.compat import is_win, is_darwin, is_linux
 from PyInstaller import log as logging
-try:
-    # PyInstaller >= 4.0 doesn't support Python 2.7
-    from PyInstaller.compat import is_py2
-except ImportError:
-    is_py2 = None
 
 # Constants
 CEFPYTHON_MIN_VERSION = "57.0"
@@ -68,10 +63,10 @@ def check_cefpython3_version():
 def get_cefpython_modules():
     """Get all cefpython Cython modules in the cefpython3 package.
     It returns a list of names without file extension. Eg.
-    'cefpython_py27'. """
+    'cefpython_py312'. """
     pyds = glob.glob(os.path.join(CEFPYTHON3_DIR,
                                   "cefpython_py*" + CYTHON_MODULE_EXT))
-    assert len(pyds) > 1, "Missing cefpython3 Cython modules"
+    assert len(pyds) >= 1, "Missing cefpython3 Cython modules"
     modules = []
     for path in pyds:
         filename = os.path.basename(path)
@@ -82,10 +77,9 @@ def get_cefpython_modules():
 
 def get_excluded_cefpython_modules():
     """CEF Python package includes Cython modules for various Python
-       versions. When using Python 2.7 pyinstaller should not
-       bundle modules for eg. Python 3.6, otherwise it will
-       cause to include Python 3 dll dependencies. Returns a list
-       of fully qualified names eg. 'cefpython3.cefpython_py27'."""
+       versions. Pyinstaller should bundle only the module for
+       the running Python version. Returns a list of fully
+       qualified names eg. 'cefpython3.cefpython_py313'."""
     pyver = "".join(map(str, sys.version_info[:2]))
     pyver_string = "py%s" % pyver
     modules = get_cefpython_modules()
@@ -218,11 +212,6 @@ hiddenimports = [
     "urllib",
     "weakref",
 ]
-if is_py2:
-    hiddenimports += [
-        "urlparse",
-    ]
-
 # Excluded modules
 excludedimports = get_excluded_cefpython_modules()
 

@@ -5,9 +5,10 @@
 include "compile_time_constants.pxi"
 
 # noinspection PyUnresolvedReferences
-from windows cimport HWND, RECT, HINSTANCE, HCURSOR
+from windows cimport HWND, HINSTANCE, HCURSOR
 from cef_string cimport CefString
 from libcpp cimport bool as cpp_bool
+from cef_types cimport CefRect, cef_runtime_style_t
 
 cdef extern from "include/internal/cef_win.h":
 
@@ -18,10 +19,11 @@ cdef extern from "include/internal/cef_win.h":
 
     cdef cppclass CefWindowInfo:
         void SetAsChild(CefWindowHandle parent,
-                        RECT windowRect)
+                        const CefRect windowRect)
         void SetAsPopup(CefWindowHandle parent,
                         const CefString& windowName)
         void SetAsWindowless(CefWindowHandle parent)
+        cef_runtime_style_t runtime_style
 
     cdef cppclass CefMainArgs:
         CefMainArgs()

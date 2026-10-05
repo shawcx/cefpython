@@ -23,28 +23,14 @@ Options:
 import copy
 import os
 import platform
+import re
 import subprocess
 import sys
 import sysconfig
 
-# The setuptools package is not installed by default on a clean
-# Ubuntu. Might be also a case on Windows. Also Python Eggs
-# and Wheels can be created only with setuptools.
-try:
-    from setuptools import setup
-    from setuptools.command.install import install
-    from setuptools.dist import Distribution
-    print("[setup.py] Using setuptools")
-except ImportError:
-    from distutils.core import setup
-    from distutils.command.install import install
-    from distutils.dist import Distribution
-    print("[setup.py] Using distutils")
-    if "bdist_wheel" in sys.argv:
-        print("[setup.py] ERROR: You must install setuptools package using"
-              " pip tool to be able to create a wheel package. Type"
-              " 'pip install setuptools'.")
-        sys.exit(1)
+from setuptools import setup
+from setuptools.command.install import install
+from setuptools.dist import Distribution
 
 
 # Need to know which files are executables to set appropriate execute
@@ -75,7 +61,29 @@ cmdclass = {"install": custom_install}
 # Fix platform tag in wheel package
 if "bdist_wheel" in sys.argv:
     print("[setup.py] Overload bdist_wheel command to fix platform tag")
-    from wheel.bdist_wheel import bdist_wheel
+    try:
+        # setuptools v70.1+
+        from setuptools.command.bdist_wheel import bdist_wheel
+    except ImportError:
+        from wheel.bdist_wheel import bdist_wheel
+
+    def get_manylinux_glibc_version():
+        """Return the highest GLIBC symbol version (major, minor)
+        required by the binaries in the package directory."""
+        package_dir = os.path.join(os.path.dirname(os.path.abspath(
+                __file__)), "cefpython3")
+        version = (2, 17)
+        for root, _, files in os.walk(package_dir):
+            for name in files:
+                path = os.path.join(root, name)
+                with open(path, "rb") as fp:
+                    if fp.read(4) != b"\x7fELF":
+                        continue
+                    data = fp.read()
+                for match in re.finditer(rb"GLIBC_(\d+)\.(\d+)", data):
+                    version = max(version, (int(match.group(1)),
+                                            int(match.group(2))))
+        return version
 
     class custom_bdist_wheel(bdist_wheel):
         def get_tag(self):
@@ -84,8 +92,11 @@ if "bdist_wheel" in sys.argv:
             platform_tag = platform_tag.replace("-", "_")
             if platform.system() == "Linux":
                 assert "linux" in platform_tag
-                # "linux-x86_64" replace with "manylinux1_x86_64"
-                platform_tag = platform_tag.replace("linux", "manylinux1")
+                # "linux_x86_64" replace with eg. "manylinux_2_34_x86_64"
+                # depending on the glibc version used to build binaries.
+                glibc = get_manylinux_glibc_version()
+                platform_tag = platform_tag.replace(
+                        "linux", "manylinux_{0}_{1}".format(*glibc))
             elif platform.system() == "Darwin":
                 # For explanation of Mac platform tags, see:
                 # http://lepture.com/en/2014/python-on-a-hard-wheel
@@ -127,29 +138,27 @@ def main():
                          " kind of internet bots.\n\n"
                          "Project website:\n"
                          "https://github.com/cztomczak/cefpython",
-        license="BSD 3-clause",
+        license="BSD-3-Clause",
         author="Czarek Tomczak",
         author_email="czarek.tomczak@gmail.com",
         url="https://github.com/cztomczak/cefpython",
         download_url="https://github.com/cztomczak/cefpython/releases",
         platforms=["{{SYSCONFIG_PLATFORM}}"],
-        packages=["cefpython3"],  # Disabled: "cefpython3.wx"
+        python_requires=">=3.12",
+        packages=["cefpython3"],
         package_data=get_package_data(),
         classifiers=[
             "Development Status :: 6 - Mature",
             "Intended Audience :: Developers",
-            "License :: OSI Approved :: BSD License",
             "Natural Language :: English",
             "Operating System :: MacOS :: MacOS X",
             "Operating System :: Microsoft :: Windows",
             "Operating System :: POSIX :: Linux",
-            "Programming Language :: Python :: 2.7",
-            "Programming Language :: Python :: 3.4",
-            "Programming Language :: Python :: 3.5",
-            "Programming Language :: Python :: 3.6",
-            "Programming Language :: Python :: 3.7",
-            "Programming Language :: Python :: 3.8",
-            "Programming Language :: Python :: 3.9",
+            "Programming Language :: Python :: 3",
+            "Programming Language :: Python :: 3 :: Only",
+            "Programming Language :: Python :: 3.12",
+            "Programming Language :: Python :: 3.13",
+            "Programming Language :: Python :: 3.14",
             "Topic :: Desktop Environment",
             "Topic :: Internet",
             "Topic :: Internet :: WWW/HTTP",

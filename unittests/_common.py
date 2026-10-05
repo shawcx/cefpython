@@ -21,6 +21,9 @@ MAC = SYSTEM if SYSTEM == "MAC" else False
 # To show the window for an extended period of time increase this number.
 MESSAGE_LOOP_RANGE = 200  # each iteration is 0.01 sec
 
+# Set by close_popup() and cleared by close_devtools()
+g_devtools_pending = False
+
 MAIN_BROWSER_ID = 1
 POPUP_BROWSER_ID = 2
 
@@ -42,9 +45,13 @@ def show_test_summary(pyfile):
 
 
 def run_message_loop():
-    # Run message loop for some time.
+    # Run message loop for some time. Keep running while the DevTools
+    # check posted by close_popup() is pending, but no more than
+    # three times as long.
     # noinspection PyTypeChecker
-    for i in range(MESSAGE_LOOP_RANGE):
+    for i in range(MESSAGE_LOOP_RANGE * 3):
+        if i >= MESSAGE_LOOP_RANGE and not g_devtools_pending:
+            break
         cef.MessageLoopWork()
         time.sleep(0.01)
     subtest_message("cef.MessageLoopWork() ok")
@@ -124,9 +131,11 @@ def close_popup(global_handler, browser):
     global_handler.PopupClosed_True = True
 
     # Test developer tools popup
+    global g_devtools_pending
+    g_devtools_pending = True
     main_browser = cef.GetBrowserByIdentifier(MAIN_BROWSER_ID)
     main_browser.ShowDevTools()
-    cef.PostDelayedTask(cef.TID_UI, 1500, close_devtools, global_handler)
+    cef.PostDelayedTask(cef.TID_UI, 800, close_devtools, global_handler)
     cef.PostDelayedTask(cef.TID_UI, 500, main_browser.SetFocus, True)
 
 
@@ -134,6 +143,8 @@ def close_devtools(global_handler):
     main_browser = cef.GetBrowserByIdentifier(MAIN_BROWSER_ID)
     global_handler.HasDevTools_True = main_browser.HasDevTools()
     main_browser.CloseDevTools()
+    global g_devtools_pending
+    g_devtools_pending = False
     subtest_message("DevTools popup ok")
 
 

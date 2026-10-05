@@ -1,8 +1,7 @@
 diff --git dialog_handler_gtk.cc dialog_handler_gtk.cc
-index 042be2ca..ce5a4d4e 100644
 --- dialog_handler_gtk.cc
 +++ dialog_handler_gtk.cc
-@@ -1,18 +1,20 @@
+@@ -1,9 +1,10 @@
 +// COPIED from upstream "cef/tests/cefclient/browser/" directory
 +// with minor modifications. See the .patch file in current directory.
 +
@@ -15,47 +14,42 @@ index 042be2ca..ce5a4d4e 100644
  #include <libgen.h>
  #include <sys/stat.h>
  
+@@ -11,11 +12,11 @@
  #include "include/cef_browser.h"
  #include "include/cef_parser.h"
  #include "include/wrapper/cef_helpers.h"
 -#include "tests/cefclient/browser/root_window.h"
+-#include "tests/cefclient/browser/util_gtk.h"
+-#include "tests/shared/common/string_util.h"
  
 -namespace client {
 +#include "include/base/cef_logging.h"
 +#include "dialog_handler_gtk.h"
++#include "util_gtk.h"
 +#include "x11.h"
  
  namespace {
  
-@@ -129,18 +131,6 @@ void AddFilters(GtkFileChooser* chooser,
-   }
- }
+@@ -130,17 +131,7 @@
  
--GtkWindow* GetWindow(CefRefPtr<CefBrowser> browser) {
+ GtkWindow* GetWindow(CefRefPtr<CefBrowser> browser) {
+   REQUIRE_MAIN_THREAD();
 -  scoped_refptr<RootWindow> root_window =
 -      RootWindow::GetForBrowser(browser->GetIdentifier());
 -  if (root_window) {
--    GtkWindow* window = GTK_WINDOW(root_window->GetWindowHandle());
--    if (!window)
+-    GtkWidget* window = root_window->GetWindowHandle();
+-    DCHECK(window);
+-    if (!window) {
 -      LOG(ERROR) << "No GtkWindow for browser";
--    return window;
+-    }
+-    return GTK_WINDOW(window);
 -  }
--  return NULL;
--}
--
- }  // namespace
+-  return nullptr;
++  return CefBrowser_GetGtkWindow(browser);
+ }
  
- ClientDialogHandlerGtk::ClientDialogHandlerGtk() : gtk_dialog_(NULL) {}
-@@ -198,7 +188,7 @@ bool ClientDialogHandlerGtk::OnFileDialog(
-     }
-   }
- 
--  GtkWindow* window = GetWindow(browser);
-+  GtkWindow* window = CefBrowser_GetGtkWindow(browser);
-   if (!window)
-     return false;
- 
-@@ -308,30 +298,30 @@ bool ClientDialogHandlerGtk::OnJSDialog(CefRefPtr<CefBrowser> browser,
+ // Returns true if |accept_filters| contains a MIME type value without matching
+@@ -379,19 +370,19 @@
      case JSDIALOGTYPE_ALERT:
        buttons = GTK_BUTTONS_NONE;
        gtk_message_type = GTK_MESSAGE_WARNING;
@@ -76,30 +70,25 @@ index 042be2ca..ce5a4d4e 100644
 -      title = "JavaScript Prompt";
 +      title = "Prompt";
        break;
-   }
  
-   js_dialog_callback_ = callback;
+     case JSDIALOGTYPE_NUM_VALUES:
+@@ -402,8 +393,8 @@
+   js_dialog_callback_ = params.callback;
  
-   if (!origin_url.empty()) {
+   if (!params.origin_url.empty()) {
 -    title += " - ";
--    title += CefFormatUrlForSecurityDisplay(origin_url).ToString();
+-    title += CefFormatUrlForSecurityDisplay(params.origin_url).ToString();
 +    // title += " - ";
-+    // title += CefFormatUrlForSecurityDisplay(origin_url).ToString();
++    // title += CefFormatUrlForSecurityDisplay(params.origin_url).ToString();
    }
  
--  GtkWindow* window = GetWindow(browser);
-+  GtkWindow* window = CefBrowser_GetGtkWindow(browser);
-   if (!window)
-     return false;
- 
-@@ -413,5 +403,3 @@ void ClientDialogHandlerGtk::OnDialogResponse(GtkDialog* dialog,
- 
-   handler->OnResetDialogState(NULL);
+   gtk_dialog_ = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_MODAL,
+@@ -476,5 +467,3 @@
+               base::BindOnce(&ClientDialogHandlerGtk::OnResetDialogState,
+                              handler, nullptr));
  }
 -
 -}  // namespace client
-diff --git dialog_handler_gtk.h dialog_handler_gtk.h
-index 163d0a35..59f65eda 100644
 --- dialog_handler_gtk.h
 +++ dialog_handler_gtk.h
 @@ -1,3 +1,6 @@
@@ -109,7 +98,7 @@ index 163d0a35..59f65eda 100644
  // Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
  // reserved. Use of this source code is governed by a BSD-style license that
  // can be found in the LICENSE file.
-@@ -11,8 +14,6 @@
+@@ -12,8 +15,6 @@
  #include "include/cef_dialog_handler.h"
  #include "include/cef_jsdialog_handler.h"
  
@@ -118,8 +107,8 @@ index 163d0a35..59f65eda 100644
  class ClientDialogHandlerGtk : public CefDialogHandler,
                                 public CefJSDialogHandler {
   public:
-@@ -53,6 +54,4 @@ class ClientDialogHandlerGtk : public CefDialogHandler,
-   DISALLOW_COPY_AND_ASSIGN(ClientDialogHandlerGtk);
+@@ -83,6 +84,4 @@
+   IMPLEMENT_REFCOUNTING(ClientDialogHandlerGtk);
  };
  
 -}  // namespace client

@@ -10,7 +10,6 @@ cimport cef_types
 
 TID_UI = cef_types.TID_UI
 TID_FILE_BACKGROUND = cef_types.TID_FILE_BACKGROUND
-TID_FILE = cef_types.TID_FILE
 TID_FILE_USER_VISIBLE = cef_types.TID_FILE_USER_VISIBLE
 TID_FILE_USER_BLOCKING = cef_types.TID_FILE_USER_BLOCKING
 TID_IO = cef_types.TID_IO
@@ -19,17 +18,13 @@ TID_RENDERER = cef_types.TID_RENDERER
 g_browserProcessThreads = [
     TID_UI,
     TID_FILE_BACKGROUND,
-    TID_FILE,
     TID_FILE_USER_VISIBLE,
     TID_FILE_USER_BLOCKING,
     TID_IO,
 ]
 
 cpdef py_bool IsString(object maybeString):
-    # In Python 2.7 string types are: 1) str/bytes 2) unicode.
-    # In Python 3 string types are: 1) bytes 2) str
-    if type(maybeString) == bytes or type(maybeString) == str \
-            or (PY_MAJOR_VERSION < 3 and type(maybeString) == unicode):
+    if type(maybeString) == bytes or type(maybeString) == str:
         return True
     return False
 

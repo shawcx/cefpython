@@ -14,7 +14,7 @@ and with v50 on Windows, so if there are issues report them on the Forum.
 Option 2 is to use CEF binaries from Spotify Automated Builds using
 the --prebuilt-cef flag. In such case check the cefpython/src/version/
 directory to know which version of CEF to download from Spotify:
-http://opensource.spotify.com/cefbuilds/index.html
+https://cef-builds.spotifycdn.com/index.html
 Download and extract it so that for example you have such a directory:
 cefpython/build/cef_binary_3.2883.1553.g80bd606_windows32/ .
 
@@ -93,7 +93,6 @@ import glob
 import shutil
 import multiprocessing
 from collections import OrderedDict
-from setuptools.msvc import msvc9_query_vcvarsall
 
 # Constants
 CEF_UPSTREAM_GIT_URL = "https://bitbucket.org/chromiumembedded/cef.git"
@@ -147,11 +146,6 @@ def main():
     setup_options(docopt.docopt(__doc__))
 
     if Options.build_cef:
-        if not sys.version_info[:2] == (2, 7):
-            print("ERROR: To build CEF from sources you need Python 2.7.")
-            print("       Upstream automate-git.py works only with that")
-            print("       version of python.")
-            sys.exit(1)
         build_cef()
     elif Options.prebuilt_cef:
         prebuilt_cef()
@@ -374,8 +368,6 @@ def build_cef_projects():
     if WINDOWS:
         fix_cmake_variables_permanently_windows()
 
-    fix_cef_include_files()
-
     # Find cef_binary directory.
     # Might already be set if --prebuilt-cef flag was passed.
     if not Options.cef_binary:
@@ -433,6 +425,10 @@ def build_cef_projects():
         command.append("-DCMAKE_BUILD_TYPE="+Options.build_type)
         if MAC:
             command.append("-DPROJECT_ARCH=x86_64")
+        if LINUX:
+            # CEF is built with clang upstream. GCC 13+ reports
+            # -Wself-move in ceftests (CEF 154) and CEF uses -Werror.
+            command.append("-DCMAKE_CXX_FLAGS=-Wno-error=self-move")
         command.append("..")
         run_command(command, build_cefclient_dir)
         print("[automate.py] OK")
@@ -522,17 +518,6 @@ def build_wrapper_library_windows(runtime_library, msvs, vcvars):
         if runtime_library == RUNTIME_MD:
             fix_cmake_variables_for_MD_library()
         env = getenv()
-        if msvs == "2010":
-            # When Using WinSDK 7.1 vcvarsall.bat doesn't work. Use
-            # setuptools.msvc.msvc9_query_vcvarsall to query env vars.
-            env.update(msvc9_query_vcvarsall(10.0, arch=VS_PLATFORM_ARG))
-            # On Python 2.7 env values returned by both distutils
-            # and setuptools are unicode, but Python expects env
-            # dict values as strings.
-            for env_key in env:
-                env_value = env[env_key]
-                if type(env_value) != str:
-                    env[env_key] = env_value.encode("utf-8")
         run_command(cmake_wrapper, working_dir=build_wrapper_dir, env=env)
         Options.gyp_msvs_version = old_gyp_msvs_version
         if runtime_library == RUNTIME_MD:
@@ -682,10 +667,6 @@ def prepare_build_command(build_lib=False, vcvars=None):
     command = list()
     if platform.system() == "Windows":
         if build_lib:
-            if vcvars == VS2010_VCVARS:
-                # When using WinSDK 7.1 vcvarsall.bat is broken. Instead
-                # env variables are queried using setuptools.msvc.
-                return command
             if vcvars:
                 command.append(vcvars)
             else:
@@ -694,29 +675,9 @@ def prepare_build_command(build_lib=False, vcvars=None):
         else:
             if int(Options.cef_branch) >= 2704:
                 command.append(VS2015_VCVARS)
-            else:
-                command.append(VS2013_VCVARS)
             command.append(VS_PLATFORM_ARG)
         command.append("&&")
     return command
-
-
-def fix_cef_include_files():
-    """Fixes to CEF include header files for eg. VS2008 on Windows."""
-    # TODO: This was fixed in upstream CEF, remove this code during
-    #       next CEF update on Windows.
-    if platform.system() == "Windows" and get_msvs_for_python() == "2008":
-        print("[automate.py] Fixing CEF include/ files")
-        # cef_types_wrappers.h
-        cef_types_wrappers = os.path.join(Options.cef_binary, "include",
-                                          "internal", "cef_types_wrappers.h")
-        with open(cef_types_wrappers, "rb") as fp:
-            contents = fp.read().decode("utf-8")
-        # error C2059: syntax error : '{'
-        contents = contents.replace("s->range = {0, 0};",
-                                    "s->range.from = 0; s->range.to = 0;")
-        with open(cef_types_wrappers, "wb") as fp:
-            fp.write(contents.encode("utf-8"))
 
 
 def create_prebuilt_binaries():
@@ -872,8 +833,6 @@ def create_prebuilt_binaries():
 
 def get_available_python_compilers():
     all_python_compilers = OrderedDict([
-        ("2008", VS2008_VCVARS),
-        ("2010", VS2010_VCVARS),
         ("2015", VS2015_VCVARS),
     ])
     ret_compilers = OrderedDict()
@@ -980,12 +939,12 @@ def run_git(command_line, working_dir):
 
 
 def run_automate_git():
-    """Run CEF automate-git.py using Python 2.7."""
+    """Run CEF automate-git.py."""
     script = os.path.join(Options.cefpython_dir, "tools", "automate-git.py")
-    """
+    r"""
     Example automate-git.py command:
         C:\chromium>call python automate-git.py --download-dir=./test/
-        --branch=2526 --no-debug-build --verbose-build
+        --branch=2526 --no-debug-build --verbose-build --with-pgo-profiles
     Run ninja build manually:
         cd chromium/src
         ninja -v -j2 -Cout\Release cefclient
@@ -1011,6 +970,7 @@ def run_automate_git():
     if Options.force_chromium_update:
         args.append("--force-update")
     args.append("--no-distrib-archive")
+    args.append("--with-pgo-profiles")
     if platform.system() == "Linux":
         # Building cefclient target isn't supported on Linux when
         # using sysroot (cef/#1916). However building cefclient

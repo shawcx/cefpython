@@ -99,7 +99,6 @@ def check_versions():
            ver=platform.python_version(),
            arch=platform.architecture()[0]))
     print("[screenshot.py] Pillow {ver}".format(ver=PILLOW_VERSION))
-    assert cef.__version__ >= "57.0", "CEF Python v57.0+ required to run this"
 
 
 def command_line_arguments():
@@ -141,7 +140,7 @@ def create_browser(settings):
                                     url=URL)
     browser.SetClientHandler(LoadHandler())
     browser.SetClientHandler(RenderHandler())
-    browser.SendFocusEvent(True)
+    browser.SetFocus(True)
     # You must call WasResized at least once to let know CEF that
     # viewport size is available and that OnPaint may be called.
     browser.WasResized()

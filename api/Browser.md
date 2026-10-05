@@ -36,7 +36,7 @@ Table of contents:
   * [GetClientCallback](#getclientcallback)
   * [GetClientCallbacksDict](#getclientcallbacksdict)
   * [GetFocusedFrame](#getfocusedframe)
-  * [GetFrame](#getframe)
+  * [GetFrameByName](#getframebyname)
   * [GetFrameByIdentifier](#getframebyidentifier)
   * [GetFrames](#getframes)
   * [GetFrameCount](#getframecount)
@@ -63,7 +63,6 @@ Table of contents:
   * [Invalidate](#invalidate)
   * [IsFullscreen](#isfullscreen)
   * [IsLoading](#isloading)
-  * [IsMouseCursorChangeDisabled](#ismousecursorchangedisabled)
   * [IsPopup](#ispopup)
   * [IsWindowRenderingDisabled](#iswindowrenderingdisabled)
   * [LoadUrl](#loadurl)
@@ -81,13 +80,11 @@ Table of contents:
   * [SendMouseClickEvent](#sendmouseclickevent)
   * [SendMouseMoveEvent](#sendmousemoveevent)
   * [SendMouseWheelEvent](#sendmousewheelevent)
-  * [SendFocusEvent](#sendfocusevent)
   * [SendCaptureLostEvent](#sendcapturelostevent)
   * [SetAccessibilityState](#setaccessibilitystate)
   * [SetClientCallback](#setclientcallback)
   * [SetClientHandler](#setclienthandler)
   * [SetFocus](#setfocus)
-  * [SetMouseCursorChangeDisabled](#setmousecursorchangedisabled)
   * [SetJavascriptBindings](#setjavascriptbindings)
   * [SetUserData](#setuserdata)
   * [SetZoomLevel](#setzoomlevel)
@@ -369,7 +366,7 @@ Get client callbacks as a dictionary.
 Returns the focused [Frame](Frame.md) for the browser window.
 
 
-### GetFrame
+### GetFrameByName
 
 | Parameter | Type |
 | --- | --- |
@@ -659,17 +656,6 @@ Available only in CEF 3. Not yet implemented.
 Returns true if the browser is currently loading.
 
 
-### IsMouseCursorChangeDisabled
-
-| | |
-| --- | --- |
-| __Return__ | bool |
-
-Available only in CEF 3.
-
-Returns true if mouse cursor change is disabled.
-
-
 ### IsPopup
 
 | | |
@@ -894,16 +880,6 @@ flags see SendMouseClickEvent().
 Send a mouse wheel event to the browser. The |x| and |y| coordinates are relative to the upper-left corner of the view. The |deltaX| and |deltaY| values represent the movement delta in the X and Y directions respectively. In order to scroll inside select popups with window rendering disabled [RenderHandler](RenderHandler.md).GetScreenPoint() should be implemented properly. For a list of modifiers flags see SendMouseClickEvent().
 
 
-### SendFocusEvent
-
-| Parameter | Type |
-| --- | --- |
-| setFocus | bool |
-| __Return__ | void |
-
-Send a focus event to the browser.
-
-
 ### SendCaptureLostEvent
 
 | | |
@@ -988,16 +964,6 @@ LifespanHandler etc.
 Set whether the browser is focused.
 
 
-### SetMouseCursorChangeDisabled
-
-| Parameter | Type |
-| --- | --- |
-| disabled | bool |
-| __Return__ | void |
-
-Set whether mouse cursor change is disabled.
-
-
 ### SetJavascriptBindings
 
 | Parameter | Type |
@@ -1005,7 +971,11 @@ Set whether mouse cursor change is disabled.
 | bindings | [JavascriptBindings](JavascriptBindings.md) |
 | __Return__ | void |
 
-Set javascript bindings.
+Set javascript bindings. They are sent to the renderer process
+asynchronously, so a page that is already loading may run its
+scripts before they are available. To have bindings available
+from the start pass them to cefpython.[CreateBrowserSync](cefpython.md#createbrowsersync)
+using the "javascript_bindings" parameter.
 
 
 ### SetUserData

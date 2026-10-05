@@ -9,20 +9,12 @@
 import os
 import sys
 import ctypes
+import importlib
 import platform
 
-__all__ = ["cefpython"]  # Disabled: "wx"
+__all__ = ["cefpython"]
 __version__ = "{{VERSION}}"
 __author__ = "The CEF Python authors"
-
-# If package was installed using PIP or setup.py then package
-# dir is here:
-#   /usr/local/lib/python2.7/dist-packages/cefpython3/
-
-# If this is a debian package then package_dir returns:
-#   /usr/lib/pymodules/python2.7/cefpython3
-# The above path consists of symbolic links to the real directory:
-#   /usr/share/pyshared/cefpython3
 
 package_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -49,26 +41,7 @@ if platform.system() == "Linux":
     ctypes.CDLL(libcef, ctypes.RTLD_GLOBAL)
 
 # Load the cefpython module for given Python version
-if sys.version_info[:2] == (2, 7):
-    # noinspection PyUnresolvedReferences
-    from . import cefpython_py27 as cefpython
-elif sys.version_info[:2] == (3, 4):
-    # noinspection PyUnresolvedReferences
-    from . import cefpython_py34 as cefpython
-elif sys.version_info[:2] == (3, 5):
-    # noinspection PyUnresolvedReferences
-    from . import cefpython_py35 as cefpython
-elif sys.version_info[:2] == (3, 6):
-    # noinspection PyUnresolvedReferences
-    from . import cefpython_py36 as cefpython
-elif sys.version_info[:2] == (3, 7):
-    # noinspection PyUnresolvedReferences
-    from . import cefpython_py37 as cefpython
-elif sys.version_info[:2] == (3, 8):
-    # noinspection PyUnresolvedReferences
-    from . import cefpython_py38 as cefpython
-elif sys.version_info[:2] == (3, 9):
-    # noinspection PyUnresolvedReferences
-    from . import cefpython_py39 as cefpython
-else:
+if sys.version_info[:2] < (3, 12):
     raise Exception("Python version not supported: " + sys.version)
+cefpython = importlib.import_module(
+    ".cefpython_py{0}{1}".format(*sys.version_info[:2]), __name__)

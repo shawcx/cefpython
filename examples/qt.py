@@ -1,37 +1,23 @@
-# Example of embedding CEF browser using PyQt4, PyQt5 and
-# PySide libraries. This example has two widgets: a navigation
-# bar and a browser.
+# Example of embedding CEF browser using PyQt5, PyQt6 and PySide6
+# libraries. This example has two widgets: a navigation bar and
+# a browser.
 #
 # Tested configurations:
+# - PyQt6 and PySide6 (qt 6) on Linux
 # - PyQt 5.8.2 (qt 5.8.0) on Windows/Linux/Mac
-# - PyQt 4.10.4 / 4.11.4 (qt 4.8.6 / 4.8.7) on Windows/Linux
-# - PySide 1.2.1 (qt 4.8.6) on Windows/Linux/Mac
-# - PySide2 5.6.0, 5.11.2 (qt 5.6.2, 5.11.2) on Windows/Linux/Mac
-# - CEF Python v55.4+
-#
-# Issues with PySide 1.2:
-# - Mac: Keyboard focus issues when switching between controls (Issue #284)
-# - Mac: Mouse cursor never changes when hovering over links (Issue #311)
+# - CEF Python v154+
 
 from cefpython3 import cefpython as cef
-import ctypes
 import os
 import platform
 import sys
 
 # GLOBALS
-PYQT4 = False
 PYQT5 = False
-PYSIDE = False
-PYSIDE2 = False
+PYQT6 = False
+PYSIDE6 = False
 
-if "pyqt4" in sys.argv:
-    PYQT4 = True
-    # noinspection PyUnresolvedReferences
-    from PyQt4.QtGui import *
-    # noinspection PyUnresolvedReferences
-    from PyQt4.QtCore import *
-elif "pyqt5" in sys.argv:
+if "pyqt5" in sys.argv:
     PYQT5 = True
     # noinspection PyUnresolvedReferences
     from PyQt5.QtGui import *
@@ -39,35 +25,34 @@ elif "pyqt5" in sys.argv:
     from PyQt5.QtCore import *
     # noinspection PyUnresolvedReferences
     from PyQt5.QtWidgets import *
-elif "pyside" in sys.argv:
-    PYSIDE = True
+elif "pyqt6" in sys.argv:
+    PYQT6 = True
     # noinspection PyUnresolvedReferences
-    import PySide
+    from PyQt6.QtGui import *
     # noinspection PyUnresolvedReferences
-    from PySide import QtCore
+    from PyQt6.QtCore import *
     # noinspection PyUnresolvedReferences
-    from PySide.QtGui import *
+    from PyQt6.QtWidgets import *
+elif "pyside6" in sys.argv:
+    PYSIDE6 = True
     # noinspection PyUnresolvedReferences
-    from PySide.QtCore import *
-elif "pyside2" in sys.argv:
-    PYSIDE2 = True
+    import PySide6
     # noinspection PyUnresolvedReferences
-    import PySide2
+    from PySide6 import QtCore
     # noinspection PyUnresolvedReferences
-    from PySide2 import QtCore
+    from PySide6.QtGui import *
     # noinspection PyUnresolvedReferences
-    from PySide2.QtGui import *
+    from PySide6.QtCore import *
     # noinspection PyUnresolvedReferences
-    from PySide2.QtCore import *
-    # noinspection PyUnresolvedReferences
-    from PySide2.QtWidgets import *
+    from PySide6.QtWidgets import *
 else:
     print("USAGE:")
-    print("  qt.py pyqt4")
     print("  qt.py pyqt5")
-    print("  qt.py pyside")
-    print("  qt.py pyside2")
+    print("  qt.py pyqt6")
+    print("  qt.py pyside6")
     sys.exit(1)
+
+QT6 = PYQT6 or PYSIDE6
 
 # Fix for PyCharm hints warnings when using static methods
 WindowUtils = cef.WindowUtils()
@@ -80,12 +65,6 @@ MAC = (platform.system() == "Darwin")
 # Configuration
 WIDTH = 800
 HEIGHT = 600
-
-# OS differences
-CefWidgetParent = QWidget
-if LINUX and (PYQT4 or PYSIDE):
-    # noinspection PyUnresolvedReferences
-    CefWidgetParent = QX11EmbedContainer
 
 
 def main():
@@ -104,7 +83,10 @@ def main():
     main_window.show()
     main_window.activateWindow()
     main_window.raise_()
-    app.exec_()
+    if QT6:
+        app.exec()
+    else:
+        app.exec_()
     if not cef.GetAppSetting("external_message_pump"):
         app.stopTimer()
     del main_window  # Just to be safe, similarly to "del app"
@@ -116,37 +98,30 @@ def check_versions():
     print("[qt.py] CEF Python {ver}".format(ver=cef.__version__))
     print("[qt.py] Python {ver} {arch}".format(
             ver=platform.python_version(), arch=platform.architecture()[0]))
-    if PYQT4 or PYQT5:
+    if PYQT5 or PYQT6:
         print("[qt.py] PyQt {v1} (qt {v2})".format(
               v1=PYQT_VERSION_STR, v2=qVersion()))
-    elif PYSIDE:
-        print("[qt.py] PySide {v1} (qt {v2})".format(
-              v1=PySide.__version__, v2=QtCore.__version__))
-    elif PYSIDE2:
-        print("[qt.py] PySide2 {v1} (qt {v2})".format(
-              v1=PySide2.__version__, v2=QtCore.__version__))
-    # CEF Python version requirement
-    assert cef.__version__ >= "55.4", "CEF Python v55.4+ required to run this"
+    elif PYSIDE6:
+        print("[qt.py] PySide6 {v1} (qt {v2})".format(
+              v1=PySide6.__version__, v2=QtCore.__version__))
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         # noinspection PyArgumentList
         super(MainWindow, self).__init__(None)
-        # Avoids crash when shutting down CEF (issue #360)
-        if PYSIDE:
-            self.setAttribute(Qt.WA_DeleteOnClose, True)
         self.cef_widget = None
         self.navigation_bar = None
-        if PYQT4:
-            self.setWindowTitle("PyQt4 example")
-        elif PYQT5:
+        if PYQT5:
             self.setWindowTitle("PyQt5 example")
-        elif PYSIDE:
-            self.setWindowTitle("PySide example")
-        elif PYSIDE2:
-            self.setWindowTitle("PySide2 example")
-        self.setFocusPolicy(Qt.StrongFocus)
+        elif PYQT6:
+            self.setWindowTitle("PyQt6 example")
+        elif PYSIDE6:
+            self.setWindowTitle("PySide6 example")
+        if QT6:
+            self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        else:
+            self.setFocusPolicy(Qt.StrongFocus)
         self.setupLayout()
 
     def setupLayout(self):
@@ -167,7 +142,7 @@ class MainWindow(QMainWindow):
         frame.setLayout(layout)
         self.setCentralWidget(frame)
 
-        if (PYSIDE2 or PYQT5) and WINDOWS:
+        if WINDOWS:
             # On Windows with PyQt5 main window must be shown first
             # before CEF browser is embedded, otherwise window is
             # not resized and application hangs during resize.
@@ -176,9 +151,9 @@ class MainWindow(QMainWindow):
         # Browser can be embedded only after layout was set up
         self.cef_widget.embedBrowser()
 
-        if (PYSIDE2 or PYQT5) and LINUX:
-            # On Linux with PyQt5 the QX11EmbedContainer widget is
-            # no more available. An equivalent in Qt5 is to create
+        if LINUX:
+            # On Linux the QX11EmbedContainer widget is no more
+            # available since Qt5. An equivalent is to create
             # a hidden window, embed CEF browser in it and then
             # create a container for that hidden window and replace
             # cef widget in the layout with the container.
@@ -200,13 +175,13 @@ class MainWindow(QMainWindow):
         self.cef_widget.browser = None
 
 
-class CefWidget(CefWidgetParent):
+class CefWidget(QWidget):
     def __init__(self, parent=None):
         # noinspection PyArgumentList
         super(CefWidget, self).__init__(parent)
         self.parent = parent
         self.browser = None
-        self.hidden_window = None  # Required for PyQt5 on Linux
+        self.hidden_window = None  # Required on Linux
         self.show()
 
     def focusInEvent(self, event):
@@ -228,7 +203,7 @@ class CefWidget(CefWidgetParent):
             self.browser.SetFocus(False)
 
     def embedBrowser(self):
-        if (PYSIDE2 or PYQT5) and LINUX:
+        if LINUX:
             # noinspection PyUnresolvedReferences
             self.hidden_window = QWindow()
         window_info = cef.WindowInfo()
@@ -241,30 +216,9 @@ class CefWidget(CefWidgetParent):
 
     def getHandle(self):
         if self.hidden_window:
-            # PyQt5 on Linux
+            # Linux
             return int(self.hidden_window.winId())
-        try:
-            # PyQt4 and PyQt5
-            return int(self.winId())
-        except:
-            # PySide:
-            # | QWidget.winId() returns <PyCObject object at 0x02FD8788>
-            # | Converting it to int using ctypes.
-            if sys.version_info[0] == 2:
-                # Python 2
-                ctypes.pythonapi.PyCObject_AsVoidPtr.restype = (
-                        ctypes.c_void_p)
-                ctypes.pythonapi.PyCObject_AsVoidPtr.argtypes = (
-                        [ctypes.py_object])
-                return ctypes.pythonapi.PyCObject_AsVoidPtr(self.winId())
-            else:
-                # Python 3
-                ctypes.pythonapi.PyCapsule_GetPointer.restype = (
-                        ctypes.c_void_p)
-                ctypes.pythonapi.PyCapsule_GetPointer.argtypes = (
-                        [ctypes.py_object])
-                return ctypes.pythonapi.PyCapsule_GetPointer(
-                        self.winId(), None)
+        return int(self.winId())
 
     def moveEvent(self, _):
         self.x = 0
