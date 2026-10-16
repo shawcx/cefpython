@@ -98,11 +98,10 @@ if "bdist_wheel" in sys.argv:
                 platform_tag = platform_tag.replace(
                         "linux", "manylinux_{0}_{1}".format(*glibc))
             elif platform.system() == "Darwin":
-                # For explanation of Mac platform tags, see:
-                # http://lepture.com/en/2014/python-on-a-hard-wheel
-                platform_tag = ("macosx_10_6_intel"
-                                ".macosx_10_9_intel.macosx_10_9_x86_64"
-                                ".macosx_10_10_intel.macosx_10_10_x86_64")
+                # The minimum macOS version is the same as in
+                # upstream CEF, see CEF_TARGET_SDK in
+                # cef/cmake/cef_variables.cmake.
+                platform_tag = "macosx_12_0_" + platform.machine()
             tag = (tag[0], tag[1], platform_tag)
             return tag
 

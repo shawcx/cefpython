@@ -401,12 +401,24 @@ cdef class PyBrowser:
                 .get().FlushStore(<CefRefPtr[CefCompletionCallback]?>nullptr)
 
         cdef int browserId = self.GetCefBrowser().get().GetIdentifier()
-        self.GetCefBrowserHost().get().CloseBrowser(bool(forceClose))
+        cdef CefRefPtr[CefBrowserHost] host = self.GetCefBrowserHost()
+        IF UNAME_SYSNAME == "Darwin":
+            # See util_mac.h
+            cdef void* autorelease_pool = MacAutoreleasePoolPush()
+        host.get().CloseBrowser(bool(forceClose))
+        IF UNAME_SYSNAME == "Darwin":
+            MacAutoreleasePoolPop(autorelease_pool)
         global g_closed_browsers
         g_closed_browsers.append(browserId)
 
     cpdef py_void CloseDevTools(self):
-        self.GetCefBrowserHost().get().CloseDevTools()
+        cdef CefRefPtr[CefBrowserHost] host = self.GetCefBrowserHost()
+        IF UNAME_SYSNAME == "Darwin":
+            # See util_mac.h
+            cdef void* autorelease_pool = MacAutoreleasePoolPush()
+        host.get().CloseDevTools()
+        IF UNAME_SYSNAME == "Darwin":
+            MacAutoreleasePoolPop(autorelease_pool)
 
     def ExecuteFunction(self, *args):
         self.GetMainFrame().ExecuteFunction(*args)
@@ -569,7 +581,13 @@ cdef class PyBrowser:
         self.GetCefBrowserHost().get().SetAccessibilityState(state)
 
     cpdef py_void SetFocus(self, enable):
-        self.GetCefBrowserHost().get().SetFocus(bool(enable))
+        cdef CefRefPtr[CefBrowserHost] host = self.GetCefBrowserHost()
+        IF UNAME_SYSNAME == "Darwin":
+            # See util_mac.h
+            cdef void* autorelease_pool = MacAutoreleasePoolPush()
+        host.get().SetFocus(bool(enable))
+        IF UNAME_SYSNAME == "Darwin":
+            MacAutoreleasePoolPop(autorelease_pool)
 
     cpdef py_void SetUserData(self, object key, object value):
         self.userData[key] = value
@@ -584,9 +602,15 @@ cdef class PyBrowser:
                                    PyToCefStringValue("DevTools"))
         cdef CefBrowserSettings settings
         cdef CefPoint inspect_element_at
-        self.GetCefBrowserHost().get().ShowDevTools(
+        cdef CefRefPtr[CefBrowserHost] host = self.GetCefBrowserHost()
+        IF UNAME_SYSNAME == "Darwin":
+            # See util_mac.h
+            cdef void* autorelease_pool = MacAutoreleasePoolPush()
+        host.get().ShowDevTools(
                 window_info, <CefRefPtr[CefClient]?>nullptr, settings,
                 inspect_element_at)
+        IF UNAME_SYSNAME == "Darwin":
+            MacAutoreleasePoolPop(autorelease_pool)
 
     cpdef py_void StopLoad(self):
         self.GetCefBrowser().get().StopLoad()

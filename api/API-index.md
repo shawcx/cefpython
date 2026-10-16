@@ -22,6 +22,7 @@
   * [debug](ApplicationSettings.md#debug)
   * [log_file](ApplicationSettings.md#log_file)
   * [log_severity](ApplicationSettings.md#log_severity)
+  * [main_bundle_path](ApplicationSettings.md#main_bundle_path)
   * [multi_threaded_message_loop](ApplicationSettings.md#multi_threaded_message_loop)
   * [pack_loading_disabled](ApplicationSettings.md#pack_loading_disabled)
   * [persist_session_cookies](ApplicationSettings.md#persist_session_cookies)

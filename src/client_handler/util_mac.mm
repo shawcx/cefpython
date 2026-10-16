@@ -42,9 +42,9 @@ BOOL g_handling_send_event = false;
 // This selector is called very early during the application initialization.
 + (void)load {
   // Swap NSApplication::sendEvent with _swizzled_sendEvent.
-  Method original = class_getInstanceMethod(self, @selector(sendEvent));
+  Method original = class_getInstanceMethod(self, @selector(sendEvent:));
   Method swizzled =
-      class_getInstanceMethod(self, @selector(_swizzled_sendEvent));
+      class_getInstanceMethod(self, @selector(_swizzled_sendEvent:));
   method_exchangeImplementations(original, swizzled);
 
   Method originalTerm = class_getInstanceMethod(self, @selector(terminate:));
@@ -76,7 +76,9 @@ BOOL g_handling_send_event = false;
 void MacInitialize() {
     // OFF: it's causing a crash during shutdown release
     // g_autopool = [[NSAutoreleasePool alloc] init];
-    [NSApplication sharedApplication];
+    @autoreleasepool {
+        [NSApplication sharedApplication];
+    }
 }
 
 void MacShutdown() {
@@ -85,7 +87,26 @@ void MacShutdown() {
 }
 
 void MacSetWindowTitle(CefRefPtr<CefBrowser> browser, char* title) {
-    NSView* view = browser->GetHost()->GetWindowHandle();
-    NSString* nstitle = [NSString stringWithFormat:@"%s" , title];
-    view.window.title = nstitle;
+    @autoreleasepool {
+        NSView* view = (NSView*)browser->GetHost()->GetWindowHandle();
+        NSString* nstitle = [NSString stringWithFormat:@"%s" , title];
+        view.window.title = nstitle;
+    }
+}
+
+std::string MacGetMainBundlePath() {
+    // For framework builds of Python this is the Python.app bundle
+    @autoreleasepool {
+        return std::string(
+                [[[NSBundle mainBundle] bundlePath]
+                        fileSystemRepresentation]);
+    }
+}
+
+void* MacAutoreleasePoolPush() {
+    return [[NSAutoreleasePool alloc] init];
+}
+
+void MacAutoreleasePoolPop(void* pool) {
+    [(NSAutoreleasePool*)pool drain];
 }

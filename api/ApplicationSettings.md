@@ -23,6 +23,7 @@ Table of contents:
   * [debug](#debug)
   * [log_file](#log_file)
   * [log_severity](#log_severity)
+  * [main_bundle_path](#main_bundle_path)
   * [multi_threaded_message_loop](#multi_threaded_message_loop)
   * [pack_loading_disabled](#pack_loading_disabled)
   * [persist_session_cookies](#persist_session_cookies)
@@ -113,6 +114,13 @@ exist at "Contents/Frameworks/<app> Helper.app/Contents/MacOS/<app> Helper"
 in the top-level app bundle. See the comments on CefExecuteProcess() for
 details. Also configurable using the "browser-subprocess-path" command-line
 switch.
+
+CEF Python sets it by default to the "subprocess" executable in the
+cefpython3 package directory. On macOS it defaults to "CEF Python
+Helper.app/Contents/MacOS/CEF Python Helper" in the package directory.
+The other helper bundles ("CEF Python Helper (Renderer).app", etc.) must
+be in the same directory, as Chromium picks the bundle for each process
+type by adding a suffix to the name of this executable.
 
 
 ### cache_path
@@ -210,6 +218,11 @@ then the framework must exist at "Contents/Frameworks/Chromium Embedded
 Framework.framework" in the top-level app bundle. Also configurable using
 the "framework-dir-path" command-line switch.
 
+CEF Python sets it by default to the "Chromium Embedded
+Framework.framework" directory in the cefpython3 package directory.
+The framework is loaded when the cefpython module is imported, or in
+Initialize() when it is not found there.
+
 See also [Issue #304](../../../issues/304).
 
 
@@ -276,6 +289,19 @@ Accepted values - constants available in the cefpython module:
 * LOGSEVERITY_WARNING
 * LOGSEVERITY_ERROR (default)
 * LOGSEVERITY_DISABLE
+
+
+### main_bundle_path
+
+(string)
+The path to the main bundle on macOS. If this value is empty then it
+defaults to the top-level app bundle. If this value is non-empty then it
+must be an absolute path. Also configurable using the "main-bundle-path"
+command-line switch.
+
+CEF Python sets it by default to the main bundle of the Python process,
+eg. Python.app for framework builds of Python. CEF passes it to the
+subprocesses, which need it to connect to the browser process.
 
 
 ### multi_threaded_message_loop

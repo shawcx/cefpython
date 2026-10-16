@@ -40,6 +40,11 @@ public:
                             CefRefPtr<CefResponse> response,
                             CefString& new_url) ;
 
+    // TODO: CEF changed the signature (origin_url instead of
+    // frame), so the method below no longer overrides it and
+    // is never called. Keep CEF's overload visible (clang's
+    // -Woverloaded-virtual).
+    using CefRequestHandler::GetAuthCredentials;
     bool GetAuthCredentials(CefRefPtr<CefBrowser> browser,
                             CefRefPtr<CefFrame> frame,
                             bool isProxy,

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CEF Python (`cefpython3`): Cython bindings for the Chromium Embedded Framework. This branch targets CEF 154 / Chromium 154 (see `src/version/cef_version_*.h`) and Python 3.12+ only. Cython is pinned to an exact version in `tools/requirements.txt` (`build.py` checks it) and compiles with `language_level=3`.
 
-Only Linux x64 has been ported and tested on CEF 154. The Windows and Mac code paths still need work: `src/include/` has Windows/Mac-only headers left over from CEF 123, and the Mac helper bundles are not done.
+Linux x64 and macOS arm64 have been ported and tested on CEF 154. The Windows code path still needs work: `src/include/` has Windows-only headers left over from CEF 123.
 
 ## Build
 
@@ -21,7 +21,7 @@ cd build
 ../venv/bin/python ../tools/build.py 154.0 --clean        # also rebuild all C++ objects (Linux/Mac)
 ```
 
-On Linux, `build.py` needs `cmake g++ ninja-build pkg-config libgtk-3-dev`. The C++ code is compiled as C++20 with `-Werror`.
+On Linux, `build.py` needs `cmake g++ ninja-build pkg-config libgtk-3-dev`. On Mac it needs Xcode (or its command line tools) and `brew install cmake ninja`, plus a framework build of Python (Homebrew or python.org); download the `macosarm64` CEF distribution. The C++ code is compiled as C++20 with `-Werror`; clang on Mac flags things GCC doesn't (eg. `-Woverloaded-virtual`).
 
 The first run after a clean build always fails once on purpose. The C++ code needs the `cefpython_pyXY.h` header that Cython generates, so `build.py` re-runs itself. Run it with `</dev/null`, because otherwise a failed `make` prompts for input.
 
@@ -78,6 +78,12 @@ CEF constraints shape the tests:
 - **`api/`** holds the Markdown API reference. When you add or change an API, update the doc, then run `tools/toc.py` (TOC) and `tools/apidocs.py` (API index).
 - **`examples/`** has GUI framework integrations (Qt, wx, GTK, Tk, PySDL2, ...); supported ones are listed in `examples/README-examples.md`.
 - **X11 embedding:** GTK 3 and wxPython parent windows use a non-default X visual, and CEF can't create its child window directly under them (`MatchError`). `GetX11BrowserParentWindow` in `x11.cpp` inserts a wrapper window when needed, and `SetX11WindowBounds` resizes both windows.
+- **Mac:**
+  - The CEF framework is not linked. `libcef_dll_wrapper` calls CEF through pointers set by `cef_load_library()`, which `cefpython.pyx` calls on import (and in `Initialize()` for a custom `framework_dir_path`). The subprocess uses `CefScopedLibraryLoader::LoadInHelper()`.
+  - Subprocesses run from five helper app bundles (`CEF Python Helper.app`, `… (GPU).app`, `… (Renderer).app`, …) that `build.py` creates next to the framework from `src/mac/helper-Info.plist` and ad-hoc signs. Chromium picks one by adding a suffix to `browser_subprocess_path`.
+  - `main_bundle_path` defaults to the Python process's main bundle (Python.app). CEF forwards it to subprocesses; without it they use the helper's bundle ID and fail with "MachPortRendezvousServer … Unknown service name".
+  - Python calls CEF outside the Cocoa event loop, where no autorelease pool exists. Calls that create or close windows are wrapped with `MacAutoreleasePoolPush/Pop` (`util_mac.h`), otherwise the leaked references keep the browser view alive and `OnBeforeClose` never fires. Cython drops unused `cdef` locals, so an RAII pool object doesn't work.
+  - Known upstream issue on macOS 27: `CefShutdown()` waits 10 s for the network service process to exit, then Chromium's teardown watchdog kills the process (exit code 2). Unmodified upstream `cefsimple` 154.0.33/154.0.34 does the same; 152 waits ~21 s. So `main_test.py` and `osr_test.py` fail at shutdown after all subtests pass.
 - **Runtime style:** `window_info.pyx` forces `CEF_RUNTIME_STYLE_ALLOY` for every browser. CEF's default Chrome style does not support all the client callbacks that cefpython implements.
 - **JavaScript bindings** passed to `CreateBrowserSync(javascript_bindings=...)` travel in CEF's `extra_info` and are applied in the renderer's `OnBrowserCreated`, so page scripts see them from the start. Popups get them the same way in `LifespanHandler_OnBeforePopup` when the bindings have `bindToPopups=True`. Bindings set later with `SetJavascriptBindings()` arrive by process message and can lose the race with `window.onload`.
 
