@@ -49,6 +49,7 @@ cdef extern from "include/internal/cef_types.h":
         int no_sandbox
         int external_message_pump
         cef_string_t framework_dir_path
+        cef_string_t main_bundle_path
 
     ctypedef struct CefBrowserSettings:
         cef_color_t background_color

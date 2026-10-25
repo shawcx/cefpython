@@ -33,6 +33,25 @@ ARCH_STR = platform.architecture()[0]
 SYSTEM64 = platform.machine().endswith('64')
 SYSTEM32 = not SYSTEM64
 
+# Mac architecture: "arm64" (Apple Silicon) or "x86_64" (Intel)
+MAC_ARCH = ("arm64" if platform.system() == "Darwin"
+            and platform.machine() == "arm64" else "x86_64")
+
+# Minimum macOS version, the same as in upstream CEF
+MAC_MIN_VERSION = "12.0"
+
+# Mac helper app bundles for subprocesses: name suffix and bundle
+# id suffix. Must match CEF_HELPER_APP_SUFFIXES in upstream
+# cef/cmake/cef_variables.cmake.
+MAC_HELPER_NAME = "CEF Python Helper"
+MAC_HELPER_SUFFIXES = [
+    ("", ""),
+    (" (Alerts)", ".alerts"),
+    (" (GPU)", ".gpu"),
+    (" (Plugin)", ".plugin"),
+    (" (Renderer)", ".renderer"),
+]
+
 # OS_POSTFIX is for directories/files names in cefpython sources
 #            and doesn't include architecture type, just OS name.
 
@@ -52,8 +71,8 @@ if OS_POSTFIX == "win":
     OS_POSTFIX2 = "win32" if ARCH32 else "win64"
     CEF_POSTFIX2 = "windows32" if ARCH32 else "windows64"
 elif OS_POSTFIX == "mac":
-    OS_POSTFIX2 = "mac32" if ARCH32 else "mac64"
-    CEF_POSTFIX2 = "macosx32" if ARCH32 else "macosx64"
+    OS_POSTFIX2 = "macarm64" if MAC_ARCH == "arm64" else "mac64"
+    CEF_POSTFIX2 = "macosarm64" if MAC_ARCH == "arm64" else "macosx64"
 elif OS_POSTFIX == "linux":
     OS_POSTFIX2 = "linux32" if ARCH32 else "linux64"
     CEF_POSTFIX2 = "linux32" if ARCH32 else "linux64"
@@ -69,18 +88,18 @@ MAC = SYSTEM if SYSTEM == "MAC" else False
 OS_POSTFIX2_ARCH = dict(
     WINDOWS={"32bit": "win32", "64bit": "win64"},
     LINUX={"32bit": "linux32", "64bit": "linux64"},
-    MAC={"32bit": "mac32", "64bit": "mac64"},
+    MAC={"64bit": OS_POSTFIX2 if OS_POSTFIX == "mac" else "mac64"},
 )
 CEF_POSTFIX2_ARCH = dict(
     WINDOWS={"32bit": "windows32", "64bit": "windows64"},
     LINUX={"32bit": "linux32", "64bit": "linux64"},
-    MAC={"64bit": "macosx64"},
+    MAC={"64bit": CEF_POSTFIX2 if OS_POSTFIX == "mac" else "macosx64"},
 )
 PYPI_POSTFIX2_ARCH = dict(
     WINDOWS={"32bit": "win32", "64bit": "win_amd64"},
     # The manylinux_X_Y prefix depends on glibc version, see setup.py
     LINUX={"32bit": "i686", "64bit": "x86_64"},
-    MAC={"64bit": "x86_64"},
+    MAC={"64bit": MAC_ARCH},
 )
 
 # Python version eg. 312

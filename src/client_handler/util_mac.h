@@ -13,5 +13,13 @@
 void MacInitialize();
 void MacShutdown();
 void MacSetWindowTitle(CefRefPtr<CefBrowser> browser, char* title);
+std::string MacGetMainBundlePath();
+
+// Python calls CEF functions outside of the Cocoa event loop, where
+// no autorelease pool exists. Objects autoreleased then would leak,
+// eg. a browser window would never be destroyed and OnBeforeClose
+// would never be called. Wrap such CEF calls with these functions.
+void* MacAutoreleasePoolPush();
+void MacAutoreleasePoolPop(void* pool);
 
 #endif  // CEFPYTHON_UTIL_MAC_H_

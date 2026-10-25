@@ -60,7 +60,7 @@ OS | Py3 | 32bit | 64bit | Status
 --- | --- | --- | --- | ---
 Linux | 3.12 / 3.13 / 3.14 | No | Yes | Tested with CEF 154 on Ubuntu 24.04 (X11)
 Windows | 3.12 / 3.13 / 3.14 | - | Yes | Not yet ported to CEF 154 (upstream tested CEF 123)
-Mac | 3.12 / 3.13 / 3.14 | No | - | Not yet ported to CEF 154
+Mac | 3.12 / 3.13 / 3.14 | No | Yes | Tested with CEF 154 on macOS 27 (arm64)
 
 
 ## Examples

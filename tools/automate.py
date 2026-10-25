@@ -399,6 +399,11 @@ def build_cef_projects():
     cefclient_exe = os.path.join(build_cefclient_dir, "tests", "cefclient",
                                  Options.build_type,
                                  "cefclient" + APP_EXT)
+    if MAC:
+        # Only cefsimple is built on Mac, see below
+        cefclient_exe = os.path.join(build_cefclient_dir, "tests",
+                                     "cefsimple", Options.build_type,
+                                     "cefsimple" + APP_EXT)
 
     # Check whether already built
     already_built = False
@@ -424,7 +429,7 @@ def build_cef_projects():
         command.extend(["cmake", "-G", "Ninja"])
         command.append("-DCMAKE_BUILD_TYPE="+Options.build_type)
         if MAC:
-            command.append("-DPROJECT_ARCH=x86_64")
+            command.append("-DPROJECT_ARCH=" + MAC_ARCH)
         if LINUX:
             # CEF is built with clang upstream. GCC 13+ reports
             # -Wself-move in ceftests (CEF 154) and CEF uses -Werror.
@@ -434,8 +439,8 @@ def build_cef_projects():
         print("[automate.py] OK")
         # Ninja
         command = prepare_build_command()
-        # On Mac cefclient fails with XCode 5:
-        # > cefclient_mac.mm:22:29: error: property 'mainMenu' not found
+        # On Mac build only cefsimple, the other sample apps take
+        # long to build and are not packaged.
         if MAC:
             # Build only cefsimple
             command.extend(["ninja", "-j", Options.ninja_jobs,
@@ -624,8 +629,7 @@ def build_wrapper_library_mac():
     # from cefclient.
     cmake_wrapper = prepare_build_command(build_lib=True)
     cmake_wrapper.extend(["cmake", "-G", "Ninja",
-                          "-DPROJECT_ARCH=x86_64",
-                          "-DCMAKE_CXX_FLAGS=-stdlib=libc++",
+                          "-DPROJECT_ARCH=" + MAC_ARCH,
                           "-DCMAKE_BUILD_TYPE=" + Options.build_type,
                           ".."])
     build_wrapper_dir = os.path.join(Options.cef_binary,
@@ -701,17 +705,12 @@ def create_prebuilt_binaries():
     if not MAC:
         cpdir(os.path.join(src, "Resources"), bindir)
 
-    # Fix id in CEF framework on Mac (currently it expects Frameworks/ dir)
+    # On Mac the CEF framework is not linked, it is loaded at runtime
+    # with cef_load_library(), so its install name is not changed.
+    # Changing it would also invalidate its code signature.
     if MAC:
-        new_id = ("@rpath/Chromium Embedded Framework.framework"
-                  "/Chromium Embedded Framework")
-        cef_framework_dir = os.path.join(
-                bindir, "Chromium Embedded Framework.framework")
-        cef_library = os.path.join(
-                cef_framework_dir, "Chromium Embedded Framework")
-        assert os.path.isdir(cef_framework_dir)
-        run_command(["install_name_tool", "-id", new_id, cef_library],
-                    working_dir=cef_framework_dir)
+        assert os.path.isdir(os.path.join(
+                bindir, "Chromium Embedded Framework.framework"))
 
     # Copy cefclient, cefsimple, ceftests
 

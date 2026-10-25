@@ -4,6 +4,10 @@
 
 #include "cefpython_app.h"
 
+#if defined(OS_MAC)
+#include "include/wrapper/cef_library_loader.h"
+#endif
+
 #if defined(OS_WIN)
 
 #include <windows.h>
@@ -28,6 +32,14 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
 
 int main(int argc, char **argv)
 {
+#if defined(OS_MAC)
+	// The CEF framework is not linked on Mac, load it at runtime.
+	// The helper app bundles are next to the framework, see build.py.
+	CefScopedLibraryLoader library_loader;
+	if (!library_loader.LoadInHelper())
+		return 1;
+#endif
+
 	CefMainArgs mainArgs(argc, argv);
 
 #endif // Mac, Linux

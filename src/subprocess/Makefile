@@ -23,8 +23,8 @@ ifeq ($(UNAME_S), Linux)
 	LIBS = -lcef $(shell pkg-config --libs gtk+-3.0 gtk+-unix-print-3.0 x11)
 else ifeq ($(UNAME_S), Darwin)
 	CPP_FILES =
-	# Include framework before libcef_dll_wrapper
-	LIBS = -framework "Chromium Embedded Framework"
+	# The CEF framework is not linked, main.cpp loads it at runtime
+	LIBS = -framework AppKit -framework Cocoa -framework IOSurface
 endif
 
 CCFLAGS = -DRENDERER_PROCESS $(CEF_CCFLAGS)
@@ -36,5 +36,5 @@ subprocess:
 		v8function_handler.cpp v8utils.cpp javascript_callback.cpp \
 		$(CPP_FILES) \
 		$(CEF_LINK_FLAGS) \
-		$(LIBS) -lcef_dll_wrapper \
+		-lcef_dll_wrapper $(LIBS) \
 		-o subprocess -Wl,-rpath,@loader_path/

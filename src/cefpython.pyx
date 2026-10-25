@@ -370,6 +370,36 @@ include "handlers/v8context_handler.pyx"
 include "handlers/v8function_handler.pyx"
 
 # -----------------------------------------------------------------------------
+# Mac: load the CEF framework
+
+IF UNAME_SYSNAME == "Darwin":
+    # On Mac the CEF framework is not linked, libcef_dll_wrapper
+    # calls CEF functions through pointers that are set when
+    # cef_load_library() is called. It must be called before any
+    # CEF function, so it is called on import with the framework
+    # next to this module, or later in Initialize() with the
+    # "framework_dir_path" setting.
+    cdef py_bool g_cef_library_loaded = False
+
+    cdef void LoadCefLibrary(str framework_dir) except *:
+        global g_cef_library_loaded
+        if g_cef_library_loaded:
+            return
+        library = os.path.join(framework_dir,
+                               "Chromium Embedded Framework")
+        if not cef_load_library(library.encode("utf-8")):
+            raise Exception("Failed to load CEF framework: " + library)
+        g_cef_library_loaded = True
+
+    def _LoadCefLibraryOnImport():
+        framework_dir = os.path.join(GetModuleDirectory(),
+                                     "Chromium Embedded Framework.framework")
+        if os.path.isdir(framework_dir):
+            LoadCefLibrary(framework_dir)
+
+    _LoadCefLibraryOnImport()
+
+# -----------------------------------------------------------------------------
 # Utility functions to provide settings to the C++ browser process code.
 
 cdef public void cefpython_GetDebugOptions(
@@ -471,6 +501,15 @@ def Initialize(applicationSettings=None, commandLineSwitches=None, **kwargs):
         if application_settings["log_severity"] <= LOGSEVERITY_INFO:
             g_debug = True
 
+    # On Mac the CEF framework must be loaded before Debug() and
+    # any other CEF function is called.
+    IF UNAME_SYSNAME == "Darwin":
+        if "framework_dir_path" not in application_settings:
+            application_settings["framework_dir_path"] = os.path.join(
+                    GetModuleDirectory(),
+                    "Chromium Embedded Framework.framework")
+        LoadCefLibrary(application_settings["framework_dir_path"])
+
     Debug("Initialize() called")
 
     # Additional initialization on Mac, see util_mac.mm.
@@ -503,10 +542,16 @@ def Initialize(applicationSettings=None, commandLineSwitches=None, **kwargs):
     # Paths
     # ------------------------------------------------------------------------
     cdef str module_dir = GetModuleDirectory()
-    if platform.system() == "Darwin":
-        if  "framework_dir_path" not in application_settings:
-            application_settings["framework_dir_path"] = os.path.join(
-                    module_dir, "Chromium Embedded Framework.framework")
+    # On Mac "framework_dir_path" was set at the beginning.
+    IF UNAME_SYSNAME == "Darwin":
+        # CEF passes this path to subprocesses. They need it to get
+        # the same base bundle ID as the browser process, otherwise
+        # they use the helper bundle ID and fail to connect to the
+        # browser process ("MachPortRendezvousServer ... Unknown
+        # service name").
+        if "main_bundle_path" not in application_settings:
+            application_settings["main_bundle_path"] = \
+                    MacGetMainBundlePath().decode("utf-8")
     if "locales_dir_path" not in application_settings:
         if platform.system() != "Darwin":
             application_settings["locales_dir_path"] = os.path.join(
@@ -519,8 +564,17 @@ def Initialize(applicationSettings=None, commandLineSwitches=None, **kwargs):
                     application_settings["framework_dir_path"],
                     "Resources")
     if "browser_subprocess_path" not in application_settings:
-        application_settings["browser_subprocess_path"] = os.path.join(
-                module_dir, "subprocess")
+        IF UNAME_SYSNAME == "Darwin":
+            # On Mac subprocesses run from helper app bundles. There
+            # is a bundle for each process type, eg. "CEF Python
+            # Helper (Renderer).app", and Chromium picks the right
+            # one based on this path, see build.py.
+            application_settings["browser_subprocess_path"] = os.path.join(
+                    module_dir, "CEF Python Helper.app", "Contents",
+                    "MacOS", "CEF Python Helper")
+        ELSE:
+            application_settings["browser_subprocess_path"] = os.path.join(
+                    module_dir, "subprocess")
 
     # ------------------------------------------------------------------------
     # Mouse context menu
@@ -605,8 +659,14 @@ def Initialize(applicationSettings=None, commandLineSwitches=None, **kwargs):
 
     Debug("CefInitialize()")
     cdef cpp_bool ret
+    IF UNAME_SYSNAME == "Darwin":
+        cdef void* autorelease_pool
     with nogil:
+        IF UNAME_SYSNAME == "Darwin":
+            autorelease_pool = MacAutoreleasePoolPush()
         ret = CefInitialize(cefMainArgs, cefApplicationSettings, cefApp, NULL)
+        IF UNAME_SYSNAME == "Darwin":
+            MacAutoreleasePoolPop(autorelease_pool)
 
     global g_cef_initialized
     g_cef_initialized = True
@@ -747,11 +807,17 @@ def CreateBrowserSync(windowInfo=None,
                         0, "", javascript_bindings.GetRendererData()))
 
     # CEF browser creation.
+    IF UNAME_SYSNAME == "Darwin":
+        cdef void* autorelease_pool
     with nogil:
+        IF UNAME_SYSNAME == "Darwin":
+            autorelease_pool = MacAutoreleasePoolPush()
         cefBrowser = cef_browser_static.CreateBrowserSync(
                 cefWindowInfo, <CefRefPtr[CefClient]?>clientHandler,
                 cefNavigateUrl, cefBrowserSettings, extra_info,
                 cefRequestContext)
+        IF UNAME_SYSNAME == "Darwin":
+            MacAutoreleasePoolPop(autorelease_pool)
 
     if not cefBrowser or not cefBrowser.get():
         Debug("CefBrowser::CreateBrowserSync() failed")
@@ -832,7 +898,15 @@ def MessageLoopWork():
         g_MessageLoopWork_called = True
 
     with nogil:
-        CefDoMessageLoopWork()
+        DoMessageLoopWork()
+
+cdef void DoMessageLoopWork() noexcept nogil:
+    # On Mac use an autorelease pool, see util_mac.h
+    IF UNAME_SYSNAME == "Darwin":
+        cdef void* autorelease_pool = MacAutoreleasePoolPush()
+    CefDoMessageLoopWork()
+    IF UNAME_SYSNAME == "Darwin":
+        MacAutoreleasePoolPop(autorelease_pool)
 
 def SingleMessageLoop():
     # @deprecated, use MessageLoopWork() instead
@@ -884,7 +958,7 @@ def Shutdown():
     for _ in range(20):
         for __ in range(10):
             with nogil:
-                CefDoMessageLoopWork()
+                DoMessageLoopWork()
         time.sleep(0.01)
 
     # Emergency plan in case the code above didn't close browsers,
@@ -913,7 +987,7 @@ def Shutdown():
             for _ in range(20):
                 for __ in range(10):
                     with nogil:
-                        CefDoMessageLoopWork()
+                        DoMessageLoopWork()
                 time.sleep(0.01)
         # Message loop work was run, so handlers callbacks might got called
         # and browsers might still be in g_pyBrowsers.
@@ -941,8 +1015,14 @@ def Shutdown():
         g_external_message_pump.reset()
 
     Debug("CefShutdown()")
+    IF UNAME_SYSNAME == "Darwin":
+        cdef void* autorelease_pool
     with nogil:
+        IF UNAME_SYSNAME == "Darwin":
+            autorelease_pool = MacAutoreleasePoolPush()
         CefShutdown()
+        IF UNAME_SYSNAME == "Darwin":
+            MacAutoreleasePoolPop(autorelease_pool)
 
     # Additional cleanup on Mac, see util_mac.mm.
     IF UNAME_SYSNAME == "Darwin":

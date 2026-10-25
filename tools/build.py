@@ -311,9 +311,15 @@ def setup_environ():
 
         if ARCH32:
             raise Exception("Python 32-bit is not supported on Mac")
-        os.environ["ARCHFLAGS"] = "-arch x86_64"
-        os.environ["CEF_CCFLAGS"] += " -arch x86_64"
-        os.environ["CEF_LINK_FLAGS"] += " -mmacosx-version-min=10.9"
+        # Minimum macOS version must match upstream CEF, see
+        # CEF_TARGET_SDK in cef/cmake/cef_variables.cmake.
+        os.environ["ARCHFLAGS"] = "-arch " + MAC_ARCH
+        os.environ["CEF_CCFLAGS"] += (" -arch " + MAC_ARCH +
+                                      " -mmacosx-version-min=" +
+                                      MAC_MIN_VERSION)
+        os.environ["CEF_LINK_FLAGS"] += (" -arch " + MAC_ARCH +
+                                         " -mmacosx-version-min=" +
+                                         MAC_MIN_VERSION)
 
         # -Wno-return-type-c-linkage to ignore:
         # > warning: 'somefunc' has C-linkage specified, but returns
@@ -486,8 +492,11 @@ def compile_cpp_projects_unix():
     subprocess_from = os.path.join(SUBPROCESS_DIR, "subprocess")
     subprocess_to = os.path.join(CEFPYTHON_BINARY, "subprocess")
     if os.path.exists(subprocess_from):
-        # shutil.copy() will also copy Permission bits
-        shutil.copy(subprocess_from, subprocess_to)
+        if MAC:
+            create_mac_helper_apps(subprocess_from)
+        else:
+            # shutil.copy() will also copy Permission bits
+            shutil.copy(subprocess_from, subprocess_to)
 
     # -- CPP_UTILS
     print("[build.py] ~~ Build CPP_UTILS project")
@@ -499,6 +508,33 @@ def compile_cpp_projects_unix():
     ret = subprocess.call("make -f Makefile", shell=True)
     if ret != 0:
         compile_ask_to_continue()
+
+
+def create_mac_helper_apps(executable):
+    """On Mac subprocesses must run from helper app bundles that
+    are next to the CEF framework. Chromium picks the bundle for
+    each process type by adding a suffix to the name of the
+    browser_subprocess_path executable, see CEF_HELPER_APP_SUFFIXES
+    in upstream cef/cmake/cef_variables.cmake."""
+    with open(os.path.join(MAC_DIR, "helper-Info.plist"), "r") as fp:
+        plist = fp.read()
+    for name_suffix, id_suffix in MAC_HELPER_SUFFIXES:
+        name = MAC_HELPER_NAME + name_suffix
+        app = os.path.join(CEFPYTHON_BINARY, name + ".app")
+        print("[build.py] Create {app}".format(app=os.path.basename(app)))
+        if os.path.exists(app):
+            shutil.rmtree(app)
+        macos_dir = os.path.join(app, "Contents", "MacOS")
+        os.makedirs(macos_dir)
+        shutil.copy(executable, os.path.join(macos_dir, name))
+        contents = (plist.replace("${EXECUTABLE_NAME}", name)
+                    .replace("${PRODUCT_NAME}", name)
+                    .replace("${BUNDLE_ID_SUFFIX}", id_suffix)
+                    .replace("${VERSION_SHORT}", VERSION))
+        with open(os.path.join(app, "Contents", "Info.plist"), "w") as fp:
+            fp.write(contents)
+        # Ad-hoc sign the bundle so that Info.plist is sealed too
+        subprocess.check_call(["codesign", "--force", "--sign", "-", app])
 
 
 def clear_cache():

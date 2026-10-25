@@ -13,8 +13,6 @@ from setuptools import Extension
 # Use "Extension" from Cython.Distutils so that "cython_directives" works
 from Cython.Distutils import build_ext, Extension
 from Cython.Compiler import Options
-# noinspection PyUnresolvedReferences
-from Cython.Compiler.ModuleNode import ModuleNode
 from common import *
 import sys
 import platform
@@ -22,36 +20,6 @@ import Cython
 import copy
 import os
 import subprocess
-
-# Must monkey patch Cython's ModuleNode to inject custom C++ code
-# in the generated cefpython.cpp. This is a fix for an error on Mac:
-# > ImportError: dynamic module does not define init function
-# To get rid of CEF's undefined symbol error when importing module
-# it was required to pass "-fvisibility=hidden" and "-Wl,-dead_strip"
-# flags. However these flags cause the "PyInit_cefpython_py312" Python
-# Module Initialization function to be hidden as well. To workaround
-# this it is required to add default visibility attribute to the
-# signature of that init function.
-#
-# Original definition in Python 3:
-# > define PyMODINIT_FUNC extern "C" __declspec(dllexport) PyObject*
-
-if MAC:
-    g_generate_extern_c_macro_definition_old = (
-            ModuleNode.generate_extern_c_macro_definition)
-
-    def generate_extern_c_macro_definition(self, code):
-        # This code is written by Cython to both cefpython API header file
-        # and cefpython module cpp file.
-        g_generate_extern_c_macro_definition_old(self, code)
-        code.putln("// Added by: cefpython/tools/cython_setup.py")
-        code.putln("#undef PyMODINIT_FUNC")
-        code.putln("#define PyMODINIT_FUNC extern \"C\""
-                   " __attribute__((visibility(\"default\"))) PyObject*")
-    # Overwrite Cython function
-    ModuleNode.generate_extern_c_macro_definition = (
-            generate_extern_c_macro_definition)
-
 
 # Issue #554: Shared libraries in manylinux1 wheel should not
 #             be linked against libpythonX.Y.so.1.0.
@@ -253,13 +221,21 @@ def set_compiler_options(options):
                 # "-ffunction-sections",
         ])
 
+        extra_compile_args.extend([
+                "-arch", MAC_ARCH,
+                "-mmacosx-version-min=" + MAC_MIN_VERSION,
+        ])
+
         # LINKER ARGS
+        # The CEF framework is not linked, it is loaded at runtime
+        # with cef_load_library(), see cefpython.pyx.
         extra_link_args.extend([
-                "-mmacosx-version-min=10.9",
+                "-arch", MAC_ARCH,
+                "-mmacosx-version-min=" + MAC_MIN_VERSION,
                 "-Wl,-search_paths_first",
-                "-F"+os.path.join(CEF_BINARIES_LIBRARIES, "bin"),
-                "-framework", "Chromium Embedded Framework",
-                "-Wl,-rpath,@loader_path/",  # ending slash is crucial!
+                "-framework", "AppKit",
+                "-framework", "Cocoa",
+                "-framework", "IOSurface",
         ])
         if not FAST_FLAG:
             extra_link_args.extend([
@@ -301,24 +277,6 @@ def get_include_dirs():
     elif MAC:
         include_dirs.extend([MAC_DIR])
         include_dirs.extend(common_include_dirs)
-        # TODO: Check these directories, are these really required on Mac?
-        include_dirs.extend([
-            '/usr/include/gtk-2.0',
-            '/usr/include/glib-2.0',
-            '/usr/include/gtk-unix-print-2.0',
-            '/usr/include/cairo',
-            '/usr/include/pango-1.0',
-            '/usr/include/harfbuzz',
-            '/usr/include/gdk-pixbuf-2.0',
-            '/usr/include/atk-1.0',
-            # Fedora
-            '/usr/lib64/gtk-2.0/include',
-            '/usr/lib64/gtk-unix-print-2.0',
-            '/usr/lib64/glib-2.0/include',
-            '/usr/lib/gtk-2.0/include',
-            '/usr/lib/gtk-2.0/gtk-unix-print-2.0',
-            '/usr/lib/glib-2.0/include',
-        ])
     elif LINUX:
         include_dirs.extend([LINUX_DIR])
         include_dirs.extend(common_include_dirs)
@@ -340,8 +298,6 @@ def get_library_dirs():
             BUILD_CLIENT_HANDLER,
             BUILD_CPP_UTILS,
         ])
-    if MAC:
-        library_dirs.append(os.path.join(CEF_BINARIES_LIBRARIES, "bin"))
     if MAC or LINUX:
         library_dirs.extend([
             os.path.join(SRC_DIR, "client_handler"),
